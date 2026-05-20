@@ -31,6 +31,12 @@ interface EdgeErrorBody {
   success?: boolean;
   payment_link?: string;
   account_name?: string;
+  banks?: Array<{ name: string; code: string }>;
+}
+
+export interface FlutterwaveBank {
+  name: string;
+  code: string;
 }
 
 const mapPaymentError = (message: string): string => {
@@ -125,6 +131,18 @@ export const setupBankAccount = async (
     const message =
       error instanceof Error ? error.message : "Could not set up bank account";
     console.error("setupBankAccount error:", error);
+    throw new Error(mapPaymentError(message));
+  }
+};
+
+export const fetchBankList = async (): Promise<FlutterwaveBank[]> => {
+  try {
+    const payload = await invokeEdgeFunction("get-banks", {});
+    return payload.banks ?? [];
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Could not fetch banks";
+    console.error("fetchBankList error:", error);
     throw new Error(mapPaymentError(message));
   }
 };

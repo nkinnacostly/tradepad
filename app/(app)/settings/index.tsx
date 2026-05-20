@@ -5,13 +5,12 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-
+import { SafeAreaView } from "react-native-safe-area-context";
 import {
   BUSINESS_TYPE_LABELS,
   COLORS,
@@ -65,7 +64,8 @@ export default function SettingsScreen(): React.JSX.Element {
     setIsProfileLoading(true);
 
     try {
-      const { data: authData, error: authError } = await supabase.auth.getUser();
+      const { data: authData, error: authError } =
+        await supabase.auth.getUser();
       if (authError) throw authError;
       const authUser = authData.user;
       if (!authUser) {
@@ -176,9 +176,7 @@ export default function SettingsScreen(): React.JSX.Element {
 
   const showFullScreenLoader = authLoading || isProfileLoading;
   const businessTypeLabel =
-    profile !== null
-      ? BUSINESS_TYPE_LABELS[profile.business_type]
-      : "";
+    profile !== null ? BUSINESS_TYPE_LABELS[profile.business_type] : "";
 
   if (showFullScreenLoader) {
     return (

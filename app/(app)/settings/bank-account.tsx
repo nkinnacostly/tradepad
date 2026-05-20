@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
+  ActivityIndicator,
   FlatList,
   Modal,
   Pressable,
@@ -26,35 +27,14 @@ import {
   SPACING,
 } from "../../../constants";
 import {
+  fetchBankList,
   resolveAccountName,
   setupBankAccount,
+  type FlutterwaveBank,
 } from "../../../hooks/usePaymentLink";
 
 const INPUT_BG = "#0D1526";
 const INPUT_BORDER = "#1E293B";
-
-const NIGERIAN_BANKS = [
-  { name: "Access Bank", code: "044" },
-  { name: "First Bank", code: "011" },
-  { name: "GTBank", code: "058" },
-  { name: "UBA", code: "033" },
-  { name: "Zenith Bank", code: "057" },
-  { name: "Fidelity Bank", code: "070" },
-  { name: "Union Bank", code: "032" },
-  { name: "Sterling Bank", code: "232" },
-  { name: "Stanbic IBTC", code: "221" },
-  { name: "FCMB", code: "214" },
-  { name: "Wema Bank", code: "035" },
-  { name: "Polaris Bank", code: "076" },
-  { name: "Keystone Bank", code: "082" },
-  { name: "Ecobank", code: "050" },
-  { name: "Heritage Bank", code: "030" },
-  { name: "Jaiz Bank", code: "301" },
-  { name: "Opay", code: "999992" },
-  { name: "Palmpay", code: "999991" },
-  { name: "Kuda Bank", code: "090267" },
-  { name: "Moniepoint", code: "090405" },
-] as const;
 
 const schema = z.object({
   bank_name: z.string().min(1, "Select a bank"),
@@ -89,6 +69,9 @@ export default function BankAccountScreen(): React.JSX.Element {
   );
   const [isResolvingAccount, setIsResolvingAccount] = useState<boolean>(false);
   const [resolveError, setResolveError] = useState<string | null>(null);
+  const [banks, setBanks] = useState<FlutterwaveBank[]>([]);
+  const [isFetchingBanks, setIsFetchingBanks] = useState<boolean>(true);
+  const [fetchBanksError, setFetchBanksError] = useState<string | null>(null);
 
   const {
     control,
@@ -111,15 +94,35 @@ export default function BankAccountScreen(): React.JSX.Element {
   const accountNumberValue = watch("bank_account_number");
   const bankCodeValue = watch("bank_code");
 
+  useEffect(() => {
+    const loadBanks = async (): Promise<void> => {
+      setIsFetchingBanks(true);
+      setFetchBanksError(null);
+
+      try {
+        const list = await fetchBankList();
+        setBanks(list);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Could not load banks";
+        setFetchBanksError(message);
+      } finally {
+        setIsFetchingBanks(false);
+      }
+    };
+
+    void loadBanks();
+  }, []);
+
   const filteredBanks = useMemo(() => {
     const query = bankSearch.trim().toLowerCase();
     if (!query) {
-      return [...NIGERIAN_BANKS];
+      return banks;
     }
-    return NIGERIAN_BANKS.filter((bank) =>
+    return banks.filter((bank) =>
       bank.name.toLowerCase().includes(query),
     );
-  }, [bankSearch]);
+  }, [bankSearch, banks]);
 
   const canVerify =
     accountNumberValue.length === 10 && bankCodeValue.length > 0;
@@ -224,11 +227,13 @@ export default function BankAccountScreen(): React.JSX.Element {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Select your bank"
+          disabled={isFetchingBanks}
           onPress={openBankModal}
           style={({ pressed }) => [
             styles.bankFieldRow,
             bankFieldError ? styles.bankFieldRowError : null,
-            pressed && styles.bankFieldPressed,
+            isFetchingBanks && styles.bankFieldDisabled,
+            pressed && !isFetchingBanks && styles.bankFieldPressed,
           ]}
         >
           <Text
@@ -363,40 +368,52 @@ export default function BankAccountScreen(): React.JSX.Element {
               onChangeText={setBankSearch}
             />
 
-            <FlatList
-              data={filteredBanks}
-              keyExtractor={(item) => item.code}
-              keyboardShouldPersistTaps="handled"
-              renderItem={({ item }) => {
-                const selected = item.code === selectedBankCode;
+            {isFetchingBanks ? (
+              <View style={styles.bankListState}>
+                <ActivityIndicator color={COLORS.primary} size="large" />
+              </View>
+            ) : null}
 
-                return (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityState={{ selected }}
-                    onPress={() => {
-                      selectBank(item.name, item.code);
-                    }}
-                    style={({ pressed }) => [
-                      styles.bankListRow,
-                      selected && styles.bankListRowSelected,
-                      pressed && styles.bankListRowPressed,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.bankListName,
-                        selected && styles.bankListNameSelected,
+            {fetchBanksError ? (
+              <Text style={styles.bankListError}>{fetchBanksError}</Text>
+            ) : null}
+
+            {!isFetchingBanks && !fetchBanksError ? (
+              <FlatList
+                data={filteredBanks}
+                keyExtractor={(item) => item.code}
+                keyboardShouldPersistTaps="handled"
+                renderItem={({ item }) => {
+                  const selected = item.code === selectedBankCode;
+
+                  return (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      onPress={() => {
+                        selectBank(item.name, item.code);
+                      }}
+                      style={({ pressed }) => [
+                        styles.bankListRow,
+                        selected && styles.bankListRowSelected,
+                        pressed && styles.bankListRowPressed,
                       ]}
                     >
-                      {item.name}
-                    </Text>
-                  </Pressable>
-                );
-              }}
-              showsVerticalScrollIndicator={false}
-              style={styles.bankList}
-            />
+                      <Text
+                        style={[
+                          styles.bankListName,
+                          selected && styles.bankListNameSelected,
+                        ]}
+                      >
+                        {item.name}
+                      </Text>
+                    </Pressable>
+                  );
+                }}
+                showsVerticalScrollIndicator={false}
+                style={styles.bankList}
+              />
+            ) : null}
           </View>
         </View>
       </Modal>
@@ -474,6 +491,9 @@ const styles = StyleSheet.create({
   },
   bankFieldPressed: {
     opacity: 0.9,
+  },
+  bankFieldDisabled: {
+    opacity: 0.5,
   },
   bankFieldText: {
     color: COLORS.textPrimary,
@@ -591,6 +611,20 @@ const styles = StyleSheet.create({
   },
   bankList: {
     maxHeight: 320,
+  },
+  bankListState: {
+    alignItems: "center",
+    justifyContent: "center",
+    maxHeight: 320,
+    minHeight: 120,
+    paddingVertical: SPACING.xl,
+  },
+  bankListError: {
+    color: COLORS.error,
+    fontFamily: FONTS.regular,
+    fontSize: FONT_SIZE.sm,
+    marginBottom: SPACING.md,
+    textAlign: "center",
   },
   bankListRow: {
     borderColor: "transparent",
