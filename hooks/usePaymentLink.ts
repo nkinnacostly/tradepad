@@ -30,8 +30,25 @@ interface EdgeErrorBody {
   error?: string;
   success?: boolean;
   payment_link?: string;
+  tx_ref?: string;
   account_name?: string;
   banks?: Array<{ name: string; code: string }>;
+  paid?: boolean;
+  already_recorded?: boolean;
+  amount?: number;
+  message?: string;
+}
+
+export interface PaymentLinkResult {
+  payment_link: string;
+  tx_ref: string;
+}
+
+export interface VerifyPaymentResult {
+  paid: boolean;
+  alreadyRecorded: boolean;
+  amount: number;
+  message: string;
 }
 
 export interface FlutterwaveBank {
@@ -172,7 +189,7 @@ export const resolveAccountName = async (params: {
 
 export const generatePaymentLink = async (
   params: GeneratePaymentLinkParams,
-): Promise<string> => {
+): Promise<PaymentLinkResult> => {
   try {
     const payload = await invokeEdgeFunction("create-payment-link", {
       job_id: params.job_id,
@@ -185,13 +202,125 @@ export const generatePaymentLink = async (
       throw new Error("Payment link was not returned");
     }
 
-    return payload.payment_link;
+    return {
+      payment_link: payload.payment_link,
+      tx_ref: payload.tx_ref ?? "",
+    };
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Could not generate payment link";
     console.error("generatePaymentLink error:", error);
     throw new Error(mapPaymentError(message));
   }
+};
+
+export const verifyPayment = async (params: {
+  tx_ref: string;
+  job_id: string;
+}): Promise<VerifyPaymentResult> => {
+  try {
+    const payload = await invokeEdgeFunction("verify-payment", {
+      tx_ref: params.tx_ref,
+      job_id: params.job_id,
+    });
+
+    return {
+      paid: payload.paid ?? false,
+      alreadyRecorded: payload.already_recorded ?? false,
+      amount: payload.amount ?? 0,
+      message: payload.message ?? "",
+    };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Could not verify payment";
+    console.error("verifyPayment error:", error);
+    throw new Error(mapPaymentError(message));
+  }
+};
+
+export const removeBankAccount = async (subaccountId: string): Promise<void> => {
+  try {
+    await invokeEdgeFunction("delete-subaccount", {
+      subaccount_id: subaccountId,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Could not remove bank account";
+    console.error("removeBankAccount error:", error);
+    throw new Error(mapPaymentError(message));
+  }
+};
+
+export interface BankAccountDetails {
+  bank_account_number: string | null;
+  bank_name: string | null;
+  bank_code: string | null;
+  flutterwave_subaccount_id: string | null;
+}
+
+export interface UseBankAccountDetailsResult {
+  details: BankAccountDetails | null;
+  isLoading: boolean;
+  error: string | null;
+  refetch: () => Promise<void>;
+}
+
+export const useBankAccountDetails = (): UseBankAccountDetailsResult => {
+  const [details, setDetails] = useState<BankAccountDetails | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchDetails = useCallback(async (): Promise<void> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      const userId = authData.user?.id;
+      if (!userId) {
+        setDetails(null);
+        setError("You must be signed in.");
+        return;
+      }
+
+      const { data, error: queryError } = await supabase
+        .from("profiles")
+        .select(
+          "bank_account_number, bank_name, bank_code, flutterwave_subaccount_id",
+        )
+        .eq("id", userId)
+        .single();
+
+      if (queryError) throw queryError;
+
+      setDetails({
+        bank_account_number: data.bank_account_number,
+        bank_name: data.bank_name,
+        bank_code: data.bank_code,
+        flutterwave_subaccount_id: data.flutterwave_subaccount_id,
+      });
+    } catch (err) {
+      console.error("useBankAccountDetails fetch error:", err);
+      setDetails(null);
+      setError("Could not load bank account details.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void fetchDetails();
+    }, [fetchDetails]),
+  );
+
+  return {
+    details,
+    isLoading,
+    error,
+    refetch: fetchDetails,
+  };
 };
 
 export const useProfileBankStatus = (): UseProfileBankStatusResult => {

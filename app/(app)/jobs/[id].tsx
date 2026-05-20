@@ -28,6 +28,7 @@ import { useClient } from "../../../hooks/useClients";
 import {
   generatePaymentLink,
   useProfileBankStatus,
+  verifyPayment,
 } from "../../../hooks/usePaymentLink";
 import {
   recordPayment,
@@ -83,6 +84,10 @@ export default function JobDetailScreen(): React.JSX.Element {
   const [isSendingInvoice, setIsSendingInvoice] = useState<boolean>(false);
   const [isGeneratingLink, setIsGeneratingLink] = useState<boolean>(false);
   const [paymentLink, setPaymentLink] = useState<string | null>(null);
+  const [paymentTxRef, setPaymentTxRef] = useState<string | null>(null);
+  const [isVerifyingPayment, setIsVerifyingPayment] = useState<boolean>(false);
+  const [verifyMessage, setVerifyMessage] = useState<string | null>(null);
+  const [verifySuccess, setVerifySuccess] = useState<boolean>(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(
@@ -145,20 +150,61 @@ export default function JobDetailScreen(): React.JSX.Element {
     setIsGeneratingLink(true);
 
     try {
-      const link = await generatePaymentLink({
+      const result = await generatePaymentLink({
         job_id: job.id,
         amount: job.total_amount - job.amount_paid,
         customer_name: client.full_name,
         customer_phone: client.phone ?? "",
       });
-      setPaymentLink(link);
-      await sharePaymentLink(link, job.title);
+      setPaymentLink(result.payment_link);
+      setPaymentTxRef(result.tx_ref);
+      setVerifyMessage(null);
+      setVerifySuccess(false);
+      await sharePaymentLink(result.payment_link, job.title);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Could not generate payment link";
       Alert.alert("Error", message);
     } finally {
       setIsGeneratingLink(false);
+    }
+  };
+
+  const handleVerifyPayment = async (): Promise<void> => {
+    if (!job || !paymentLink || !paymentTxRef) {
+      return;
+    }
+
+    setIsVerifyingPayment(true);
+    setVerifyMessage(null);
+    setVerifySuccess(false);
+
+    try {
+      const result = await verifyPayment({
+        tx_ref: paymentTxRef,
+        job_id: job.id,
+      });
+
+      if (result.paid) {
+        setVerifySuccess(true);
+        setVerifyMessage(
+          result.alreadyRecorded
+            ? "Payment was already recorded"
+            : `Payment of ₦${result.amount.toLocaleString("en-NG")} verified and recorded!`,
+        );
+        await refetch();
+      } else {
+        setVerifyMessage(
+          "Payment not completed yet. Ask your client to complete the payment.",
+        );
+      }
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Could not verify payment";
+      setVerifyMessage(message);
+      setVerifySuccess(false);
+    } finally {
+      setIsVerifyingPayment(false);
     }
   };
 
@@ -367,6 +413,36 @@ export default function JobDetailScreen(): React.JSX.Element {
                 <Text style={styles.shareAgainText}>Share again</Text>
               </Pressable>
             </View>
+          ) : null}
+          {paymentLink && paymentTxRef && outstanding > 0 ? (
+            <>
+              <Button
+                disabled={isVerifyingPayment}
+                isLoading={isVerifyingPayment}
+                label={
+                  isVerifyingPayment
+                    ? "Checking..."
+                    : "✓ Check Payment Status"
+                }
+                style={styles.verifyPaymentButton}
+                variant="outline"
+                onPress={() => {
+                  void handleVerifyPayment();
+                }}
+              />
+              {verifyMessage ? (
+                <Text
+                  style={[
+                    styles.verifyMessage,
+                    verifySuccess
+                      ? styles.verifyMessageSuccess
+                      : styles.verifyMessageWarning,
+                  ]}
+                >
+                  {verifyMessage}
+                </Text>
+              ) : null}
+            </>
           ) : null}
         </>
       ) : null}
@@ -643,6 +719,20 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontFamily: FONTS.medium,
     fontSize: FONT_SIZE.sm,
+  },
+  verifyPaymentButton: {
+    marginTop: SPACING.sm,
+  },
+  verifyMessage: {
+    fontFamily: FONTS.medium,
+    fontSize: FONT_SIZE.sm,
+    marginTop: SPACING.sm,
+  },
+  verifyMessageSuccess: {
+    color: COLORS.success,
+  },
+  verifyMessageWarning: {
+    color: COLORS.warning,
   },
   bankSetupHint: {
     color: COLORS.textMuted,

@@ -12,7 +12,6 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    // 1. Verify auth
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -21,14 +20,14 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // 2. Get user from token
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SERVICE_ROLE_KEY")!,
     );
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    const { data: { user }, error: userError } =
+      await supabase.auth.getUser(token);
     if (userError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
@@ -36,12 +35,10 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // 3. Get request body
-    const { bank_account_number, bank_name, bank_code, business_name, business_email, business_mobile } = await req.json();
-
-    if (!bank_account_number || !bank_name || !bank_code || !business_name) {
+    const { subaccount_id } = await req.json();
+    if (!subaccount_id) {
       return new Response(
-        JSON.stringify({ error: "Missing required fields" }),
+        JSON.stringify({ error: "subaccount_id is required" }),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -49,56 +46,35 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // 4. Create Flutterwave subaccount
     const flwResponse = await fetch(
-      "https://api.flutterwave.com/v3/subaccounts",
+      `https://api.flutterwave.com/v3/subaccounts/${subaccount_id}`,
       {
-        method: "POST",
+        method: "DELETE",
         headers: {
-          "Authorization": `Bearer ${Deno.env.get("FLUTTERWAVE_SECRET_KEY")}`,
+          Authorization: `Bearer ${Deno.env.get("FLUTTERWAVE_SECRET_KEY")}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          account_number: bank_account_number,
-          account_bank: bank_code,
-          business_name,
-          business_email: business_email ?? `${user.id}@tradepad.app`,
-          business_mobile: business_mobile ?? "08000000000",
-          country: "NG",
-          split_type: "percentage",
-          split_value: 0.015, // artisan gets 98.5%, Tradepad keeps 1.5%
-        }),
       },
     );
 
     const flwData = await flwResponse.json();
-
     if (flwData.status !== "success") {
-      return new Response(
-        JSON.stringify({ error: flwData.message ?? "Flutterwave error" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
+      console.error("Flutterwave delete subaccount error:", flwData.message);
     }
 
-    const subaccountId = flwData.data.subaccount_id;
-
-    // 5. Save to profile
     const { error: updateError } = await supabase
       .from("profiles")
       .update({
-        bank_account_number,
-        bank_name,
-        bank_code,
-        flutterwave_subaccount_id: subaccountId,
+        bank_account_number: null,
+        bank_name: null,
+        bank_code: null,
+        flutterwave_subaccount_id: null,
       })
       .eq("id", user.id);
 
     if (updateError) {
       return new Response(
-        JSON.stringify({ error: "Could not save bank details" }),
+        JSON.stringify({ error: "Could not remove bank account" }),
         {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -107,7 +83,7 @@ Deno.serve(async (req: Request) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, subaccount_id: subaccountId }),
+      JSON.stringify({ success: true }),
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

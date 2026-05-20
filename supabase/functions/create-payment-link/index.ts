@@ -80,53 +80,62 @@ Deno.serve(async (req: Request) => {
     const reference = `TRADEPAD-${job_id}-${Date.now()}`;
 
     // 6. Create Flutterwave payment link
-    const flwResponse = await fetch(
-      "https://api.flutterwave.com/v3/payment-plans",
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${Deno.env.get("FLUTTERWAVE_SECRET_KEY")}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          amount,
-          currency: "NGN",
-          name: `Payment for ${profile.business_name}`,
-          redirect_url: "https://tradepad.app/payment-complete",
-          customer: {
-            name: customer_name,
-            phonenumber: customer_phone ?? "",
-          },
-          meta: {
-            job_id,
-            platform: "tradepad",
-          },
-          subaccounts: [
-            {
-              id: profile.flutterwave_subaccount_id,
-            },
-          ],
-          tx_ref: reference,
-        }),
+   // Replace this section in the function:
+const flwResponse = await fetch(
+  "https://api.flutterwave.com/v3/payments",  // Standard checkout endpoint
+  {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${Deno.env.get("FLUTTERWAVE_SECRET_KEY")}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      tx_ref: reference,
+      amount,
+      currency: "NGN",
+      redirect_url: "https://tradepad.app/payment-complete",
+      customer: {
+        email: `${customer_name.toLowerCase().replace(/\s+/g, "")}@tradepad-client.app`,
+        phonenumber: customer_phone ?? "",
+        name: customer_name,
       },
-    );
-
-    const flwData = await flwResponse.json();
-
-    if (flwData.status !== "success") {
-      return new Response(
-        JSON.stringify({ error: flwData.message ?? "Could not create payment link" }),
+      meta: {
+        job_id,
+        platform: "tradepad",
+      },
+      subaccounts: [
         {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          id: profile.flutterwave_subaccount_id,
         },
-      );
-    }
+      ],
+      customizations: {
+        title: profile.business_name,
+        description: `Payment for job`,
+      },
+    }),
+  },
+);
 
-    const paymentLink = flwData.data.link;
+const flwData = await flwResponse.json();
+
+if (flwData.status !== "success") {
+  return new Response(
+    JSON.stringify({ error: flwData.message ?? "Could not create payment link" }),
+    {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    },
+  );
+}
+
+const paymentLink = flwData.data.link;  // Standard checkout returns data.link
 
     return new Response(
-      JSON.stringify({ success: true, payment_link: paymentLink, reference }),
+      JSON.stringify({
+        success: true,
+        payment_link: paymentLink,
+        tx_ref: reference,
+      }),
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

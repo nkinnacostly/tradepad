@@ -53,7 +53,7 @@ export default function ClientDetailScreen(): React.JSX.Element {
   } = useLatestMeasurement(client?.id ?? "");
 
   const handleEditPress = (): void => {
-    console.log("edit client:", id);
+    router.push(`/(app)/clients/${id}/edit`);
   };
 
   if (isLoading) {

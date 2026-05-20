@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Modal,
   Pressable,
@@ -28,8 +29,11 @@ import {
 } from "../../../constants";
 import {
   fetchBankList,
+  removeBankAccount,
   resolveAccountName,
   setupBankAccount,
+  useBankAccountDetails,
+  type BankAccountDetails,
   type FlutterwaveBank,
 } from "../../../hooks/usePaymentLink";
 
@@ -59,7 +63,23 @@ const hexToRgba = (hex: string, alpha: number): string => {
 const SUCCESS_BG = hexToRgba(COLORS.success, 0.1);
 const SUCCESS_BORDER = hexToRgba(COLORS.success, 0.3);
 
-export default function BankAccountScreen(): React.JSX.Element {
+const maskAccountNumber = (account: string): string => {
+  const digits = account.replace(/\D/g, "");
+  if (digits.length < 5) {
+    return account;
+  }
+  const first = digits.slice(0, 3);
+  const last = digits.slice(-2);
+  return `${first}*******${last}`;
+};
+
+interface BankAccountSetupFormProps {
+  onConnected: () => Promise<void>;
+}
+
+const BankAccountSetupForm = ({
+  onConnected,
+}: BankAccountSetupFormProps): React.JSX.Element => {
   const [bankModalVisible, setBankModalVisible] = useState<boolean>(false);
   const [bankSearch, setBankSearch] = useState<string>("");
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -180,9 +200,7 @@ export default function BankAccountScreen(): React.JSX.Element {
         business_mobile: data.business_mobile,
       });
       setSuccessMessage("Bank account connected successfully.");
-      setTimeout(() => {
-        router.back();
-      }, 1200);
+      await onConnected();
     } catch (error) {
       const message =
         error instanceof Error
@@ -195,19 +213,7 @@ export default function BankAccountScreen(): React.JSX.Element {
   const bankFieldError = errors.bank_name?.message ?? errors.bank_code?.message;
 
   return (
-    <ScreenWrapper decorative={false}>
-      <View style={styles.headerRow}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <Ionicons color={COLORS.textPrimary} name="arrow-back" size={24} />
-        </Pressable>
-        <Text style={styles.title}>Bank Account</Text>
-      </View>
-
+    <>
       <View style={styles.introCard}>
         <Ionicons
           color={COLORS.success}
@@ -417,11 +423,171 @@ export default function BankAccountScreen(): React.JSX.Element {
           </View>
         </View>
       </Modal>
+    </>
+  );
+};
+
+interface ConnectedBankAccountProps {
+  details: BankAccountDetails;
+  onRemoved: () => Promise<void>;
+}
+
+const ConnectedBankAccount = ({
+  details,
+  onRemoved,
+}: ConnectedBankAccountProps): React.JSX.Element => {
+  const [isRemoving, setIsRemoving] = useState<boolean>(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+
+  const accountNumber = details.bank_account_number ?? "";
+  const maskedAccount = maskAccountNumber(accountNumber);
+  const bankName = details.bank_name ?? "Bank";
+  const subaccountId = details.flutterwave_subaccount_id ?? "";
+
+  const handleRemovePress = (): void => {
+    if (!subaccountId) {
+      return;
+    }
+
+    Alert.alert(
+      "Remove Bank Account",
+      "This will disconnect your bank account. You won't be able to generate payment links until you reconnect.",
+      [
+        { style: "cancel", text: "Cancel" },
+        {
+          style: "destructive",
+          text: "Remove",
+          onPress: () => {
+            void (async (): Promise<void> => {
+              setIsRemoving(true);
+              setRemoveError(null);
+
+              try {
+                await removeBankAccount(subaccountId);
+                await onRemoved();
+              } catch (err) {
+                const message =
+                  err instanceof Error
+                    ? err.message
+                    : "Could not remove bank account.";
+                setRemoveError(message);
+              } finally {
+                setIsRemoving(false);
+              }
+            })();
+          },
+        },
+      ],
+    );
+  };
+
+  return (
+    <>
+      <View
+        style={[
+          styles.connectedCard,
+          {
+            backgroundColor: SUCCESS_BG,
+            borderColor: SUCCESS_BORDER,
+          },
+        ]}
+      >
+        <View style={styles.connectedCardHeader}>
+          <Ionicons color={COLORS.success} name="card-outline" size={24} />
+          <View style={styles.connectedBadge}>
+            <Text style={styles.connectedBadgeText}>Connected ✓</Text>
+          </View>
+        </View>
+        <Text style={styles.connectedBankName}>{bankName}</Text>
+        <Text style={styles.connectedAccountNumber}>{maskedAccount}</Text>
+      </View>
+
+      {removeError ? (
+        <Text style={styles.removeError}>{removeError}</Text>
+      ) : null}
+
+      <Pressable
+        accessibilityRole="button"
+        disabled={isRemoving}
+        onPress={handleRemovePress}
+        style={({ pressed }) => [
+          styles.removeButton,
+          isRemoving && styles.removeButtonDisabled,
+          pressed && !isRemoving && styles.removeButtonPressed,
+        ]}
+      >
+        {isRemoving ? (
+          <ActivityIndicator color={COLORS.error} size="small" />
+        ) : (
+          <Text style={styles.removeButtonText}>Remove Bank Account</Text>
+        )}
+      </Pressable>
+
+      <Text style={styles.reconnectNote}>
+        To connect a different account, remove this one first.
+      </Text>
+    </>
+  );
+};
+
+export default function BankAccountScreen(): React.JSX.Element {
+  const { details, isLoading, error, refetch } = useBankAccountDetails();
+
+  const isConnected = Boolean(details?.flutterwave_subaccount_id);
+
+  if (isLoading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator color={COLORS.primary} size="large" />
+      </View>
+    );
+  }
+
+  return (
+    <ScreenWrapper decorative={false}>
+      <View style={styles.headerRow}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          onPress={() => router.back()}
+          style={styles.backButton}
+        >
+          <Ionicons color={COLORS.textPrimary} name="arrow-back" size={24} />
+        </Pressable>
+        <Text style={styles.title}>Bank Account</Text>
+      </View>
+
+      {error ? (
+        <View style={styles.errorBlock}>
+          <Text style={styles.errorBlockText}>{error}</Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.back()}
+            style={styles.backLink}
+          >
+            <Text style={styles.backLinkText}>Go back</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {!error && isConnected && details ? (
+        <ConnectedBankAccount details={details} onRemoved={refetch} />
+      ) : null}
+
+      {!error && !isConnected ? (
+        <BankAccountSetupForm onConnected={refetch} />
+      ) : null}
     </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
+  centered: {
+    alignItems: "center",
+    backgroundColor: COLORS.background,
+    flex: 1,
+    justifyContent: "center",
+  },
   headerRow: {
     alignItems: "center",
     flexDirection: "row",
@@ -438,6 +604,95 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontFamily: FONTS.extrabold,
     fontSize: FONT_SIZE.xl,
+  },
+  errorBlock: {
+    alignItems: "center",
+    marginTop: SPACING.lg,
+  },
+  errorBlockText: {
+    color: COLORS.error,
+    fontFamily: FONTS.regular,
+    fontSize: FONT_SIZE.sm,
+    textAlign: "center",
+  },
+  backLink: {
+    marginTop: SPACING.md,
+    minHeight: 44,
+    justifyContent: "center",
+  },
+  backLinkText: {
+    color: COLORS.primary,
+    fontFamily: FONTS.semibold,
+    fontSize: FONT_SIZE.md,
+  },
+  connectedCard: {
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    marginBottom: SPACING.lg,
+    padding: SPACING.lg,
+  },
+  connectedCardHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: SPACING.md,
+  },
+  connectedBadge: {
+    backgroundColor: hexToRgba(COLORS.success, 0.15),
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+  },
+  connectedBadgeText: {
+    color: COLORS.success,
+    fontFamily: FONTS.semibold,
+    fontSize: FONT_SIZE.sm,
+  },
+  connectedBankName: {
+    color: COLORS.textPrimary,
+    fontFamily: FONTS.semibold,
+    fontSize: FONT_SIZE.lg,
+    marginBottom: SPACING.xs,
+  },
+  connectedAccountNumber: {
+    color: COLORS.textSecondary,
+    fontFamily: FONTS.regular,
+    fontSize: FONT_SIZE.md,
+  },
+  removeError: {
+    color: COLORS.error,
+    fontFamily: FONTS.regular,
+    fontSize: FONT_SIZE.sm,
+    marginBottom: SPACING.md,
+  },
+  removeButton: {
+    alignItems: "center",
+    backgroundColor: "transparent",
+    borderColor: COLORS.error,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1.5,
+    height: 56,
+    justifyContent: "center",
+    width: "100%",
+  },
+  removeButtonDisabled: {
+    opacity: 0.5,
+  },
+  removeButtonPressed: {
+    opacity: 0.85,
+  },
+  removeButtonText: {
+    color: COLORS.error,
+    fontFamily: FONTS.bold,
+    fontSize: FONT_SIZE.lg,
+    fontWeight: FONT_WEIGHT.bold,
+  },
+  reconnectNote: {
+    color: COLORS.textMuted,
+    fontFamily: FONTS.regular,
+    fontSize: FONT_SIZE.sm,
+    marginTop: SPACING.md,
+    textAlign: "center",
   },
   introCard: {
     alignItems: "center",
