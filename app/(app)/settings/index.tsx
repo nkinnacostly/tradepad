@@ -24,6 +24,7 @@ import {
 } from "../../../constants";
 import { signOut, useAuth } from "../../../hooks/useAuth";
 import { updateUnitPreference } from "../../../hooks/useMeasurements";
+import { useProfileBankStatus } from "../../../hooks/usePaymentLink";
 import { supabase } from "../../../lib/supabase";
 import type { BusinessType, MeasurementUnitPreference } from "../../../types";
 
@@ -57,6 +58,7 @@ export default function SettingsScreen(): React.JSX.Element {
     useState<MeasurementUnitPreference>("inches");
   const [isUpdatingUnit, setIsUpdatingUnit] = useState<boolean>(false);
   const [isSigningOut, setIsSigningOut] = useState<boolean>(false);
+  const { hasBankAccount } = useProfileBankStatus();
 
   const loadProfile = useCallback(async (): Promise<void> => {
     setProfileError(null);
@@ -331,6 +333,45 @@ export default function SettingsScreen(): React.JSX.Element {
           </View>
         </View>
 
+        <Text style={styles.sectionHeading}>PAYMENTS</Text>
+        <View style={styles.card}>
+          <Pressable
+            accessibilityRole="button"
+            style={({ pressed }) => [
+              styles.paymentsRow,
+              pressed && styles.paymentsRowPressed,
+            ]}
+            onPress={() => {
+              router.push("/(app)/settings/bank-account");
+            }}
+          >
+            <Ionicons
+              color={COLORS.textMuted}
+              name="card-outline"
+              size={20}
+              style={styles.rowIcon}
+            />
+            <View style={styles.rowMiddle}>
+              <Text style={styles.rowLabel}>Bank account</Text>
+              <Text
+                style={[
+                  styles.bankStatusValue,
+                  hasBankAccount
+                    ? styles.bankStatusConnected
+                    : styles.bankStatusPending,
+                ]}
+              >
+                {hasBankAccount ? "Connected ✓" : "Not set up"}
+              </Text>
+            </View>
+            <Ionicons
+              color={COLORS.textMuted}
+              name="chevron-forward"
+              size={18}
+            />
+          </Pressable>
+        </View>
+
         <Text style={styles.sectionHeading}>ACCOUNT</Text>
         <View style={styles.card}>
           <View style={styles.profileRow}>
@@ -449,6 +490,27 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.semibold,
     fontSize: FONT_SIZE.md,
     marginTop: SPACING.xs,
+  },
+  paymentsRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    minHeight: 44,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
+  },
+  paymentsRowPressed: {
+    opacity: 0.85,
+  },
+  bankStatusValue: {
+    fontFamily: FONTS.semibold,
+    fontSize: FONT_SIZE.md,
+    marginTop: SPACING.xs,
+  },
+  bankStatusConnected: {
+    color: COLORS.success,
+  },
+  bankStatusPending: {
+    color: COLORS.warning,
   },
   divider: {
     backgroundColor: COLORS.border,

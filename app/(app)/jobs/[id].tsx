@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -24,6 +25,10 @@ import {
   SPACING,
 } from "../../../constants";
 import { useClient } from "../../../hooks/useClients";
+import {
+  generatePaymentLink,
+  useProfileBankStatus,
+} from "../../../hooks/usePaymentLink";
 import {
   recordPayment,
   updateJobStatus,
@@ -71,9 +76,13 @@ export default function JobDetailScreen(): React.JSX.Element {
     id ?? "",
   );
   const { client } = useClient(job?.client_id ?? "");
+  const { hasBankAccount, isLoading: bankStatusLoading } =
+    useProfileBankStatus();
 
   const [businessName, setBusinessName] = useState<string>("");
   const [isSendingInvoice, setIsSendingInvoice] = useState<boolean>(false);
+  const [isGeneratingLink, setIsGeneratingLink] = useState<boolean>(false);
+  const [paymentLink, setPaymentLink] = useState<string | null>(null);
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(
@@ -120,6 +129,38 @@ export default function JobDetailScreen(): React.JSX.Element {
 
     void fetchBusinessName();
   }, []);
+
+  const sharePaymentLink = async (link: string, jobTitle: string): Promise<void> => {
+    await Share.share({
+      message: `Pay for ${jobTitle} here: ${link}`,
+      url: link,
+    });
+  };
+
+  const handleGeneratePaymentLink = async (): Promise<void> => {
+    if (!job || !client) {
+      return;
+    }
+
+    setIsGeneratingLink(true);
+
+    try {
+      const link = await generatePaymentLink({
+        job_id: job.id,
+        amount: job.total_amount - job.amount_paid,
+        customer_name: client.full_name,
+        customer_phone: client.phone ?? "",
+      });
+      setPaymentLink(link);
+      await sharePaymentLink(link, job.title);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Could not generate payment link";
+      Alert.alert("Error", message);
+    } finally {
+      setIsGeneratingLink(false);
+    }
+  };
 
   const handleSendInvoice = async (): Promise<void> => {
     if (!job || !client || !businessName.trim()) {
@@ -289,6 +330,51 @@ export default function JobDetailScreen(): React.JSX.Element {
             void handleSendInvoice();
           }}
         />
+      ) : null}
+
+      {outstanding > 0 && hasBankAccount ? (
+        <>
+          <Button
+            disabled={isGeneratingLink}
+            isLoading={isGeneratingLink}
+            label={
+              isGeneratingLink
+                ? "Generating..."
+                : "🔗 Generate Payment Link"
+            }
+            style={styles.paymentLinkButton}
+            variant="outline"
+            onPress={() => {
+              void handleGeneratePaymentLink();
+            }}
+          />
+          {paymentLink ? (
+            <View style={styles.paymentLinkCard}>
+              <Text style={styles.paymentLinkSuccess}>
+                Payment link generated
+              </Text>
+              <Text numberOfLines={1} style={styles.paymentLinkUrl}>
+                {paymentLink}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                hitSlop={8}
+                style={styles.shareAgainButton}
+                onPress={() => {
+                  void sharePaymentLink(paymentLink, job.title);
+                }}
+              >
+                <Text style={styles.shareAgainText}>Share again</Text>
+              </Pressable>
+            </View>
+          ) : null}
+        </>
+      ) : null}
+
+      {outstanding > 0 && !bankStatusLoading && !hasBankAccount ? (
+        <Text style={styles.bankSetupHint}>
+          Set up your bank account in Settings to generate payment links
+        </Text>
       ) : null}
 
       <Text style={styles.sectionLabel}>Status</Text>
@@ -524,6 +610,45 @@ const styles = StyleSheet.create({
   },
   invoiceButton: {
     marginBottom: SPACING.lg,
+  },
+  paymentLinkButton: {
+    marginBottom: SPACING.md,
+  },
+  paymentLinkCard: {
+    backgroundColor: COLORS.surface,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    marginBottom: SPACING.lg,
+    padding: SPACING.md,
+  },
+  paymentLinkSuccess: {
+    color: COLORS.success,
+    fontFamily: FONTS.medium,
+    fontSize: FONT_SIZE.sm,
+    marginBottom: SPACING.xs,
+  },
+  paymentLinkUrl: {
+    color: COLORS.textMuted,
+    fontFamily: FONTS.regular,
+    fontSize: FONT_SIZE.xs,
+    marginBottom: SPACING.sm,
+  },
+  shareAgainButton: {
+    alignSelf: "flex-start",
+    minHeight: 44,
+    justifyContent: "center",
+  },
+  shareAgainText: {
+    color: COLORS.primary,
+    fontFamily: FONTS.medium,
+    fontSize: FONT_SIZE.sm,
+  },
+  bankSetupHint: {
+    color: COLORS.textMuted,
+    fontFamily: FONTS.regular,
+    fontSize: FONT_SIZE.sm,
+    marginBottom: SPACING.md,
   },
   sectionLabel: {
     color: COLORS.textPrimary,
