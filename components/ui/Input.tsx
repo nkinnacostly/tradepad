@@ -29,15 +29,7 @@ interface InputProps extends TextInputProps {
 
 export const Input = forwardRef<TextInput, InputProps>(
   (
-    {
-      label,
-      error,
-      isPassword = false,
-      style,
-      onFocus,
-      onBlur,
-      ...props
-    },
+    { label, error, isPassword = false, style, onFocus, onBlur, ...props },
     ref,
   ): React.JSX.Element => {
     const [isFocused, setIsFocused] = useState(false);
@@ -122,8 +114,8 @@ const styles = StyleSheet.create({
   },
   inputFocused: {
     borderColor: INPUT_BORDER,
-    borderLeftColor: COLORS.primary,
-    borderLeftWidth: 3,
+    // borderLeftColor: COLORS.primary,
+    // borderLeftWidth: ,
   },
   inputError: {
     borderColor: COLORS.error,
