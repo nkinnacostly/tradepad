@@ -90,25 +90,28 @@ export default function DashboardScreen(): React.JSX.Element {
 
       <Text style={styles.dateText}>{formatTodayDate()}</Text>
 
-      <View style={styles.statsRow}>
-        <StatCard
-          icon="briefcase-outline"
-          label="Active Jobs"
-          value={activeJobs}
-        />
-        <StatCard
-          icon="time-outline"
-          iconColor={COLORS.warning}
-          label="Due Today"
-          value={dueToday}
-        />
+      <View style={styles.statsColumn}>
         <StatCard
           icon="wallet-outline"
           iconColor={COLORS.error}
           isAmount
           label="Outstanding"
+          style={styles.statCardFull}
           value={outstandingAmount}
         />
+        <View style={styles.statsRow}>
+          <StatCard
+            icon="briefcase-outline"
+            label="Active Jobs"
+            value={activeJobs}
+          />
+          <StatCard
+            icon="time-outline"
+            iconColor={COLORS.warning}
+            label="Due Today"
+            value={dueToday}
+          />
+        </View>
       </View>
 
       <Text style={styles.sectionLabel}>Quick Actions</Text>
@@ -198,10 +201,17 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.lg,
     marginTop: SPACING.xs,
   },
+  statsColumn: {
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
+  },
   statsRow: {
     flexDirection: "row",
     gap: SPACING.sm,
-    marginBottom: SPACING.lg,
+  },
+  statCardFull: {
+    flex: undefined,
+    width: "100%",
   },
   sectionLabel: {
     color: COLORS.textSecondary,

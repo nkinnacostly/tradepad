@@ -257,79 +257,83 @@ export default function SettingsScreen(): React.JSX.Element {
           </View>
         </View>
 
-        <Text style={styles.sectionHeading}>PREFERENCES</Text>
-        <View style={styles.card}>
-          <View style={styles.preferenceRow}>
-            <Ionicons
-              color={COLORS.textMuted}
-              name="resize-outline"
-              size={20}
-              style={styles.rowIcon}
-            />
-            <View style={styles.preferenceMiddle}>
-              <Text style={styles.rowLabel}>Measurement units</Text>
-            </View>
-            <View style={styles.chipGroup}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ selected: activeUnit === "inches" }}
-                disabled={isUpdatingUnit}
-                style={({ pressed }) => [
-                  styles.unitChip,
-                  activeUnit === "inches"
-                    ? styles.unitChipSelected
-                    : styles.unitChipIdle,
-                  pressed && !isUpdatingUnit && styles.unitChipPressed,
-                ]}
-                onPress={() => {
-                  void handleUnitChange("inches");
-                }}
-              >
-                <Text
-                  style={
-                    activeUnit === "inches"
-                      ? styles.unitChipTextSelected
-                      : styles.unitChipTextIdle
-                  }
-                >
-                  inches
-                </Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ selected: activeUnit === "cm" }}
-                disabled={isUpdatingUnit}
-                style={({ pressed }) => [
-                  styles.unitChip,
-                  activeUnit === "cm"
-                    ? styles.unitChipSelected
-                    : styles.unitChipIdle,
-                  pressed && !isUpdatingUnit && styles.unitChipPressed,
-                ]}
-                onPress={() => {
-                  void handleUnitChange("cm");
-                }}
-              >
-                <Text
-                  style={
-                    activeUnit === "cm"
-                      ? styles.unitChipTextSelected
-                      : styles.unitChipTextIdle
-                  }
-                >
-                  cm
-                </Text>
-              </Pressable>
-              {isUpdatingUnit ? (
-                <ActivityIndicator
-                  color={COLORS.primary}
-                  size="small"
-                  style={styles.unitSpinner}
+        {profile.business_type === "tailor" ? (
+          <>
+            <Text style={styles.sectionHeading}>PREFERENCES</Text>
+            <View style={styles.card}>
+              <View style={styles.preferenceRow}>
+                <Ionicons
+                  color={COLORS.textMuted}
+                  name="resize-outline"
+                  size={20}
+                  style={styles.rowIcon}
                 />
-              ) : null}
+                <View style={styles.preferenceMiddle}>
+                  <Text style={styles.rowLabel}>Measurement units</Text>
+                </View>
+                <View style={styles.chipGroup}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: activeUnit === "inches" }}
+                    disabled={isUpdatingUnit}
+                    style={({ pressed }) => [
+                      styles.unitChip,
+                      activeUnit === "inches"
+                        ? styles.unitChipSelected
+                        : styles.unitChipIdle,
+                      pressed && !isUpdatingUnit && styles.unitChipPressed,
+                    ]}
+                    onPress={() => {
+                      void handleUnitChange("inches");
+                    }}
+                  >
+                    <Text
+                      style={
+                        activeUnit === "inches"
+                          ? styles.unitChipTextSelected
+                          : styles.unitChipTextIdle
+                      }
+                    >
+                      inches
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: activeUnit === "cm" }}
+                    disabled={isUpdatingUnit}
+                    style={({ pressed }) => [
+                      styles.unitChip,
+                      activeUnit === "cm"
+                        ? styles.unitChipSelected
+                        : styles.unitChipIdle,
+                      pressed && !isUpdatingUnit && styles.unitChipPressed,
+                    ]}
+                    onPress={() => {
+                      void handleUnitChange("cm");
+                    }}
+                  >
+                    <Text
+                      style={
+                        activeUnit === "cm"
+                          ? styles.unitChipTextSelected
+                          : styles.unitChipTextIdle
+                      }
+                    >
+                      cm
+                    </Text>
+                  </Pressable>
+                  {isUpdatingUnit ? (
+                    <ActivityIndicator
+                      color={COLORS.primary}
+                      size="small"
+                      style={styles.unitSpinner}
+                    />
+                  ) : null}
+                </View>
+              </View>
             </View>
-          </View>
-        </View>
+          </>
+        ) : null}
 
         <Text style={styles.sectionHeading}>PAYMENTS</Text>
         <View style={styles.card}>

@@ -8,16 +8,20 @@ import {
   View,
 } from "react-native";
 
+import { StatusBadge } from "../../../../components/jobs/StatusBadge";
 import { MeasurementCard } from "../../../../components/measurements/MeasurementCard";
 import { ScreenWrapper } from "../../../../components/ui/ScreenWrapper";
 import {
   COLORS,
   FONTS,
   FONT_SIZE,
+  JOB_STATUS_COLORS,
+  JOB_STATUS_LABELS,
   RADIUS,
   SPACING,
 } from "../../../../constants";
 import { useClient } from "../../../../hooks/useClients";
+import { useJobs, type JobWithClient } from "../../../../hooks/useJobs";
 import { useLatestMeasurement } from "../../../../hooks/useMeasurements";
 import type { MeasurementUnitPreference } from "../../../../types";
 
@@ -51,6 +55,7 @@ export default function ClientDetailScreen(): React.JSX.Element {
     isLoading: measurementsLoading,
     error: measurementsError,
   } = useLatestMeasurement(client?.id ?? "");
+  const { jobs, isLoading: jobsLoading } = useJobs();
 
   const handleEditPress = (): void => {
     router.push(`/(app)/clients/${id}/edit`);
@@ -78,6 +83,8 @@ export default function ClientDetailScreen(): React.JSX.Element {
       </View>
     );
   }
+
+  const clientJobs = jobs.filter((job) => job.client_id === client.id);
 
   const initial = client.full_name.trim().charAt(0).toUpperCase() || "?";
   const hasPhone = client.phone.trim().length > 0;
@@ -202,7 +209,35 @@ export default function ClientDetailScreen(): React.JSX.Element {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Jobs</Text>
-        <Text style={styles.placeholder}>Jobs coming soon</Text>
+
+        {jobsLoading ? (
+          <ActivityIndicator color={COLORS.primary} size="small" />
+        ) : null}
+
+        {!jobsLoading && clientJobs.length === 0 ? (
+          <Text style={styles.placeholder}>No jobs yet</Text>
+        ) : null}
+
+        {!jobsLoading &&
+          clientJobs.map((job) => (
+            <Pressable
+              key={job.id}
+              accessibilityRole="button"
+              onPress={() => router.push(`/(app)/jobs/${job.id}`)}
+              style={({ pressed }) => [
+                styles.jobRow,
+                pressed && styles.jobRowPressed,
+              ]}
+            >
+              <View style={styles.jobRowLeft}>
+                <Text style={styles.jobTitle}>{job.title}</Text>
+                <Text style={styles.jobAmount}>
+                  ₦{job.total_amount.toLocaleString("en-NG")}
+                </Text>
+              </View>
+              <StatusBadge status={job.status} size="sm" />
+            </Pressable>
+          ))}
       </View>
     </ScreenWrapper>
   );
@@ -313,6 +348,35 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontFamily: FONTS.regular,
     fontSize: FONT_SIZE.sm,
+  },
+  jobRow: {
+    alignItems: "center",
+    backgroundColor: COLORS.surface,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: SPACING.sm,
+    padding: SPACING.md,
+  },
+  jobRowPressed: {
+    opacity: 0.8,
+  },
+  jobRowLeft: {
+    flex: 1,
+    marginRight: SPACING.sm,
+  },
+  jobTitle: {
+    color: COLORS.textPrimary,
+    fontFamily: FONTS.semibold,
+    fontSize: FONT_SIZE.md,
+  },
+  jobAmount: {
+    color: COLORS.textSecondary,
+    fontFamily: FONTS.regular,
+    fontSize: FONT_SIZE.sm,
+    marginTop: 2,
   },
   measurementsLoader: {
     alignSelf: "flex-start",

@@ -13,7 +13,9 @@
       "backgroundColor": "#080D1A"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tradepad.app"
+
     },
     "android": {
       "adaptiveIcon": {
@@ -22,6 +24,8 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
+      "package": "com.tradepad.app",
+
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -30,6 +34,12 @@
     "plugins": [
       "expo-router",
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "5355851b-2c91-4c85-94bc-b077e40a1d68"
+      }
+    }
   }
 }

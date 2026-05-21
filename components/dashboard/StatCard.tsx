@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View, type ViewStyle } from "react-native";
 
 import {
   COLORS,
@@ -15,6 +15,7 @@ interface StatCardProps {
   icon: keyof typeof Ionicons.glyphMap;
   iconColor?: string;
   isAmount?: boolean;
+  style?: ViewStyle;
 }
 
 const formatAmount = (value: number): string => {
@@ -35,12 +36,13 @@ export const StatCard = ({
   icon,
   iconColor = COLORS.primary,
   isAmount = false,
+  style,
 }: StatCardProps): React.JSX.Element => {
   const displayValue =
     isAmount && typeof value === "number" ? formatAmount(value) : value;
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, style]}>
       <View
         style={[
           styles.iconContainer,

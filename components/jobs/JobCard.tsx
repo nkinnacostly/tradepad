@@ -26,10 +26,7 @@ const formatAmount = (value: number): string => {
   return `₦${value.toLocaleString("en-NG")}`;
 };
 
-export const JobCard = ({
-  job,
-  onPress,
-}: JobCardProps): React.JSX.Element => {
+export const JobCard = ({ job, onPress }: JobCardProps): React.JSX.Element => {
   const balance = job.total_amount - job.amount_paid;
   const isFullyPaid = balance <= 0;
   const accentColor = JOB_STATUS_COLORS[job.status];
@@ -40,7 +37,7 @@ export const JobCard = ({
       onPress={() => onPress(job.id)}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
-      <View style={[styles.accentBar, { backgroundColor: accentColor }]} />
+      {/* <View style={[styles.accentBar, { backgroundColor: accentColor }]} /> */}
 
       <View style={styles.inner}>
         <View style={styles.row}>
@@ -57,7 +54,11 @@ export const JobCard = ({
           <View style={styles.dueRow}>
             {job.due_date ? (
               <>
-                <Ionicons color={COLORS.textMuted} name="time-outline" size={14} />
+                <Ionicons
+                  color={COLORS.textMuted}
+                  name="time-outline"
+                  size={14}
+                />
                 <Text style={styles.dueText}>
                   Due {formatDueDate(job.due_date)}
                 </Text>
@@ -91,15 +92,15 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.8,
   },
-  accentBar: {
-    borderBottomLeftRadius: RADIUS.lg,
-    borderTopLeftRadius: RADIUS.lg,
-    bottom: 0,
-    left: 0,
-    position: "absolute",
-    top: 0,
-    width: 3,
-  },
+  // accentBar: {
+  //   borderBottomLeftRadius: RADIUS.lg,
+  //   borderTopLeftRadius: RADIUS.lg,
+  //   bottom: 0,
+  //   left: 0,
+  //   position: "absolute",
+  //   top: 0,
+  //   width: 3,
+  // },
   inner: {
     padding: SPACING.md,
     paddingLeft: SPACING.sm + 3,

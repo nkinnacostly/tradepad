@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
+  ScrollView,
   Share,
   StyleSheet,
   Text,
@@ -30,11 +31,7 @@ import {
   useProfileBankStatus,
   verifyPayment,
 } from "../../../hooks/usePaymentLink";
-import {
-  recordPayment,
-  updateJobStatus,
-  useJob,
-} from "../../../hooks/useJobs";
+import { recordPayment, updateJobStatus, useJob } from "../../../hooks/useJobs";
 import { supabase } from "../../../lib/supabase";
 import type { JobStatus, PaymentMethod } from "../../../types";
 import { sendWhatsAppInvoice } from "../../../utils/whatsapp";
@@ -135,7 +132,10 @@ export default function JobDetailScreen(): React.JSX.Element {
     void fetchBusinessName();
   }, []);
 
-  const sharePaymentLink = async (link: string, jobTitle: string): Promise<void> => {
+  const sharePaymentLink = async (
+    link: string,
+    jobTitle: string,
+  ): Promise<void> => {
     await Share.share({
       message: `Pay for ${jobTitle} here: ${link}`,
       url: link,
@@ -321,8 +321,15 @@ export default function JobDetailScreen(): React.JSX.Element {
     Boolean(job.clients?.full_name?.trim()) && hasClientPhone;
   const next = nextStatus(job.status);
   const nextLabel = nextStatusLabel(job.status);
-  const borderColor =
+  const statusBorderColor =
     next != null ? JOB_STATUS_COLORS[next] : COLORS.primary;
+  const showPaymentLinkChip = outstanding > 0 && hasBankAccount;
+  const showVerifyChip =
+    Boolean(paymentLink) && Boolean(paymentTxRef) && outstanding > 0;
+  const showChipRow =
+    showInvoiceButton || showPaymentLinkChip || showVerifyChip;
+  const showBankSetupHint =
+    outstanding > 0 && !bankStatusLoading && !hasBankAccount;
 
   return (
     <ScreenWrapper decorative={false}>
@@ -361,126 +368,95 @@ export default function JobDetailScreen(): React.JSX.Element {
         <Ionicons color={COLORS.textMuted} name="chevron-forward" size={20} />
       </Pressable>
 
-      {showInvoiceButton ? (
-        <Button
-          disabled={isSendingInvoice || !businessName.trim()}
-          isLoading={isSendingInvoice}
-          label={
-            isSendingInvoice
-              ? "Sending..."
-              : "📲 Send Invoice via WhatsApp"
-          }
-          style={styles.invoiceButton}
-          variant="outline"
-          onPress={() => {
-            void handleSendInvoice();
-          }}
-        />
-      ) : null}
-
-      {outstanding > 0 && hasBankAccount ? (
-        <>
-          <Button
-            disabled={isGeneratingLink}
-            isLoading={isGeneratingLink}
-            label={
-              isGeneratingLink
-                ? "Generating..."
-                : "🔗 Generate Payment Link"
-            }
-            style={styles.paymentLinkButton}
-            variant="outline"
-            onPress={() => {
-              void handleGeneratePaymentLink();
-            }}
-          />
-          {paymentLink ? (
-            <View style={styles.paymentLinkCard}>
-              <Text style={styles.paymentLinkSuccess}>
-                Payment link generated
-              </Text>
-              <Text numberOfLines={1} style={styles.paymentLinkUrl}>
-                {paymentLink}
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                hitSlop={8}
-                style={styles.shareAgainButton}
-                onPress={() => {
-                  void sharePaymentLink(paymentLink, job.title);
-                }}
-              >
-                <Text style={styles.shareAgainText}>Share again</Text>
-              </Pressable>
-            </View>
+      {showChipRow ? (
+        <ScrollView
+          horizontal
+          contentContainerStyle={styles.chipRowContent}
+          showsHorizontalScrollIndicator={false}
+          style={styles.chipRow}
+        >
+          {showInvoiceButton ? (
+            <Pressable
+              accessibilityRole="button"
+              disabled={isSendingInvoice || !businessName.trim()}
+              onPress={() => {
+                void handleSendInvoice();
+              }}
+              style={({ pressed }) => [
+                styles.actionChip,
+                (isSendingInvoice || !businessName.trim()) &&
+                  styles.actionChipDisabled,
+                pressed &&
+                  !isSendingInvoice &&
+                  businessName.trim() &&
+                  styles.actionChipPressed,
+              ]}
+            >
+              {isSendingInvoice ? (
+                <ActivityIndicator color={COLORS.textMuted} size="small" />
+              ) : (
+                <Text style={styles.actionChipText}>📲 Invoice</Text>
+              )}
+            </Pressable>
           ) : null}
-          {paymentLink && paymentTxRef && outstanding > 0 ? (
-            <>
-              <Button
-                disabled={isVerifyingPayment}
-                isLoading={isVerifyingPayment}
-                label={
-                  isVerifyingPayment
-                    ? "Checking..."
-                    : "✓ Check Payment Status"
-                }
-                style={styles.verifyPaymentButton}
-                variant="outline"
-                onPress={() => {
-                  void handleVerifyPayment();
-                }}
-              />
-              {verifyMessage ? (
-                <Text
-                  style={[
-                    styles.verifyMessage,
-                    verifySuccess
-                      ? styles.verifyMessageSuccess
-                      : styles.verifyMessageWarning,
-                  ]}
-                >
-                  {verifyMessage}
-                </Text>
-              ) : null}
-            </>
-          ) : null}
-        </>
-      ) : null}
 
-      {outstanding > 0 && !bankStatusLoading && !hasBankAccount ? (
-        <Text style={styles.bankSetupHint}>
-          Set up your bank account in Settings to generate payment links
-        </Text>
+          {showPaymentLinkChip ? (
+            <Pressable
+              accessibilityRole="button"
+              disabled={isGeneratingLink}
+              onPress={() => {
+                void handleGeneratePaymentLink();
+              }}
+              style={({ pressed }) => [
+                styles.actionChip,
+                styles.actionChipPrimary,
+                isGeneratingLink && styles.actionChipDisabled,
+                pressed && !isGeneratingLink && styles.actionChipPressed,
+              ]}
+            >
+              {isGeneratingLink ? (
+                <ActivityIndicator color={COLORS.textMuted} size="small" />
+              ) : (
+                <Text style={styles.actionChipText}>🔗 Payment Link</Text>
+              )}
+            </Pressable>
+          ) : null}
+
+          {showVerifyChip ? (
+            <Pressable
+              accessibilityRole="button"
+              disabled={isVerifyingPayment}
+              onPress={() => {
+                void handleVerifyPayment();
+              }}
+              style={({ pressed }) => [
+                styles.actionChip,
+                styles.actionChipSuccess,
+                isVerifyingPayment && styles.actionChipDisabled,
+                pressed && !isVerifyingPayment && styles.actionChipPressed,
+              ]}
+            >
+              {isVerifyingPayment ? (
+                <ActivityIndicator color={COLORS.textMuted} size="small" />
+              ) : (
+                <Text style={styles.actionChipText}>✓ Check Payment</Text>
+              )}
+            </Pressable>
+          ) : null}
+        </ScrollView>
       ) : null}
 
       <Text style={styles.sectionLabel}>Status</Text>
       <View style={styles.statusBlock}>
         <StatusBadge size="lg" status={job.status} />
-        {next && nextLabel ? (
-          <Button
-            disabled={statusUpdating}
-            isLoading={statusUpdating}
-            label={nextLabel}
-            style={
-              StyleSheet.flatten([
-                styles.statusButton,
-                { borderColor },
-              ]) as ViewStyle
-            }
-            variant="outline"
-            onPress={handleStatusAdvance}
-          />
-        ) : (
-          <Text style={styles.completedText}>Completed</Text>
-        )}
       </View>
-
-      {submitError ? <Text style={styles.submitError}>{submitError}</Text> : null}
 
       <View style={styles.financeCard}>
         <View style={styles.financeRow}>
           <Text style={styles.financeLabel}>Total Amount</Text>
-          <Text style={styles.financeValue}>{formatAmount(job.total_amount)}</Text>
+          <Text style={styles.financeValue}>
+            {formatAmount(job.total_amount)}
+          </Text>
         </View>
         <View style={styles.financeRow}>
           <Text style={styles.financeLabel}>Amount Paid</Text>
@@ -525,6 +501,48 @@ export default function JobDetailScreen(): React.JSX.Element {
         ) : null}
       </View>
 
+      {paymentLink ? (
+        <View style={styles.paymentLinkCard}>
+          <Text style={styles.paymentLinkSuccess}>Payment link generated</Text>
+          <Text numberOfLines={1} style={styles.paymentLinkUrl}>
+            {paymentLink}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            hitSlop={8}
+            style={styles.shareAgainButton}
+            onPress={() => {
+              void sharePaymentLink(paymentLink, job.title);
+            }}
+          >
+            <Text style={styles.shareAgainText}>Share again</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {verifyMessage ? (
+        <Text
+          style={[
+            styles.verifyMessage,
+            verifySuccess
+              ? styles.verifyMessageSuccess
+              : styles.verifyMessageWarning,
+          ]}
+        >
+          {verifyMessage}
+        </Text>
+      ) : null}
+
+      {showBankSetupHint ? (
+        <Text style={styles.bankSetupHint}>
+          Set up your bank account in Settings to generate payment links
+        </Text>
+      ) : null}
+
+      {submitError ? (
+        <Text style={styles.submitError}>{submitError}</Text>
+      ) : null}
+
       {outstanding > 0 ? (
         <View style={styles.paymentSection}>
           <Text style={styles.sectionLabel}>Record Payment</Text>
@@ -548,7 +566,9 @@ export default function JobDetailScreen(): React.JSX.Element {
                   onPress={() => setPaymentMethod(opt.value)}
                   style={({ pressed }) => [
                     styles.methodChip,
-                    selected ? styles.methodChipSelected : styles.methodChipIdle,
+                    selected
+                      ? styles.methodChipSelected
+                      : styles.methodChipIdle,
                     pressed && styles.chipPressed,
                   ]}
                 >
@@ -604,6 +624,24 @@ export default function JobDetailScreen(): React.JSX.Element {
           <Text style={styles.notesBody}>{job.notes}</Text>
         </View>
       ) : null}
+
+      {next && nextLabel ? (
+        <Button
+          disabled={statusUpdating}
+          isLoading={statusUpdating}
+          label={nextLabel}
+          style={
+            StyleSheet.flatten([
+              styles.statusCtaButton,
+              { borderColor: statusBorderColor },
+            ]) as ViewStyle
+          }
+          variant="outline"
+          onPress={handleStatusAdvance}
+        />
+      ) : (
+        <Text style={styles.jobCompletedText}>✓ Job Completed</Text>
+      )}
     </ScreenWrapper>
   );
 }
@@ -684,11 +722,43 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.semibold,
     fontSize: FONT_SIZE.md,
   },
-  invoiceButton: {
+  chipRow: {
     marginBottom: SPACING.lg,
   },
-  paymentLinkButton: {
-    marginBottom: SPACING.md,
+  chipRowContent: {
+    alignItems: "center",
+    flexDirection: "row",
+    paddingRight: SPACING.md,
+  },
+  actionChip: {
+    alignItems: "center",
+    backgroundColor: COLORS.surface,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: SPACING.xs,
+    height: 36,
+    justifyContent: "center",
+    marginRight: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+  },
+  actionChipPrimary: {
+    borderColor: COLORS.primary,
+  },
+  actionChipSuccess: {
+    borderColor: COLORS.success,
+  },
+  actionChipDisabled: {
+    opacity: 0.5,
+  },
+  actionChipPressed: {
+    opacity: 0.8,
+  },
+  actionChipText: {
+    color: COLORS.textPrimary,
+    fontFamily: FONTS.medium,
+    fontSize: FONT_SIZE.sm,
   },
   paymentLinkCard: {
     backgroundColor: COLORS.surface,
@@ -720,13 +790,10 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.medium,
     fontSize: FONT_SIZE.sm,
   },
-  verifyPaymentButton: {
-    marginTop: SPACING.sm,
-  },
   verifyMessage: {
     fontFamily: FONTS.medium,
     fontSize: FONT_SIZE.sm,
-    marginTop: SPACING.sm,
+    marginBottom: SPACING.md,
   },
   verifyMessageSuccess: {
     color: COLORS.success,
@@ -747,16 +814,19 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   statusBlock: {
-    gap: SPACING.md,
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.lg,
   },
-  statusButton: {
+  statusCtaButton: {
     borderWidth: 1.5,
+    height: 56,
+    marginTop: SPACING.lg,
   },
-  completedText: {
-    color: COLORS.textSecondary,
+  jobCompletedText: {
+    color: COLORS.success,
     fontFamily: FONTS.medium,
     fontSize: FONT_SIZE.md,
+    marginTop: SPACING.lg,
+    textAlign: "center",
   },
   submitError: {
     color: COLORS.error,
