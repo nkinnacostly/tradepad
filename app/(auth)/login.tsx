@@ -104,7 +104,9 @@ export default function LoginScreen(): React.JSX.Element {
           )}
         />
 
-        {submitError ? <Text style={styles.submitError}>{submitError}</Text> : null}
+        {submitError ? (
+          <Text style={styles.submitError}>{submitError}</Text>
+        ) : null}
 
         <Button
           isLoading={isSubmitting}

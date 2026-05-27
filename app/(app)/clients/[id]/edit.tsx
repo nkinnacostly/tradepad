@@ -45,10 +45,7 @@ const schema = z.object({
     )
     .optional()
     .or(z.literal("")),
-  notes: z
-    .string()
-    .max(500, "Notes must be under 500 characters")
-    .optional(),
+  notes: z.string().max(500, "Notes must be under 500 characters").optional(),
 });
 
 type EditClientFormData = z.infer<typeof schema>;
@@ -90,7 +87,7 @@ export default function EditClientScreen(): React.JSX.Element {
   }, [client, reset]);
 
   const onSubmit = async (data: EditClientFormData): Promise<void> => {
-    if (!id) {
+    if (!id || isSubmitting) {
       return;
     }
 
@@ -250,7 +247,7 @@ export default function EditClientScreen(): React.JSX.Element {
               }}
               onChangeText={onChange}
               onFocus={() => setIsNotesFocused(true)}
-              onSubmitEditing={handleSubmit(onSubmit)}
+              // onSubmitEditing={handleSubmit(onSubmit)}
             />
             {errors.notes?.message ? (
               <Text style={styles.notesError}>{errors.notes.message}</Text>
@@ -259,7 +256,9 @@ export default function EditClientScreen(): React.JSX.Element {
         )}
       />
 
-      {submitError ? <Text style={styles.submitError}>{submitError}</Text> : null}
+      {submitError ? (
+        <Text style={styles.submitError}>{submitError}</Text>
+      ) : null}
 
       <Button
         disabled={isDeleting}
