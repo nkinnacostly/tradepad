@@ -3,13 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { z } from "zod";
 
 import { Button } from "../../../components/ui/Button";
@@ -36,10 +30,7 @@ const schema = z.object({
       (val) => val === "" || val.replace(/\D/g, "").length >= 10,
       "Enter a valid phone number",
     ),
-  notes: z
-    .string()
-    .max(500, "Notes must be under 500 characters")
-    .optional(),
+  notes: z.string().max(500, "Notes must be under 500 characters").optional(),
 });
 
 type NewClientFormData = z.infer<typeof schema>;
@@ -64,6 +55,7 @@ export default function NewClientScreen(): React.JSX.Element {
   });
 
   const onSubmit = async (data: NewClientFormData): Promise<void> => {
+    if (isSubmitting) return;
     setSubmitError(null);
 
     try {
@@ -72,7 +64,8 @@ export default function NewClientScreen(): React.JSX.Element {
         phone: data.phone,
         notes: data.notes,
       });
-      router.back();
+      // router.back();
+      router.replace("/(app)/clients");
     } catch (error) {
       const message =
         error instanceof Error
@@ -160,7 +153,7 @@ export default function NewClientScreen(): React.JSX.Element {
               }}
               onChangeText={onChange}
               onFocus={() => setIsNotesFocused(true)}
-              onSubmitEditing={handleSubmit(onSubmit)}
+              // onSubmitEditing={handleSubmit(onSubmit)}
             />
             {errors.notes?.message ? (
               <Text style={styles.notesError}>{errors.notes.message}</Text>
@@ -169,7 +162,9 @@ export default function NewClientScreen(): React.JSX.Element {
         )}
       />
 
-      {submitError ? <Text style={styles.submitError}>{submitError}</Text> : null}
+      {submitError ? (
+        <Text style={styles.submitError}>{submitError}</Text>
+      ) : null}
 
       <Button
         isLoading={isSubmitting}

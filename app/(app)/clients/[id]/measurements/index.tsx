@@ -6,6 +6,7 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -67,6 +68,95 @@ export default function ClientMeasurementsScreen(): React.JSX.Element {
     }, [refetch]),
   );
 
+  const handleShareMeasurements = async (): Promise<void> => {
+    if (measurements.length === 0) return;
+
+    const latest = measurements[0];
+    const unitLabel = unitPreferenceToLabel(activeUnit);
+    const clientName = client?.full_name ?? "Client";
+
+    const FIELD_LABELS: Record<string, string> = {
+      chest: "Chest",
+      waist: "Waist",
+      hips: "Hips",
+      shoulder: "Shoulder",
+      sleeve_length: "Sleeve",
+      trouser_length: "Trouser",
+      neck: "Neck",
+    };
+
+    const STANDARD_FIELDS = [
+      "chest",
+      "waist",
+      "hips",
+      "shoulder",
+      "sleeve_length",
+      "trouser_length",
+      "neck",
+    ] as const;
+
+    const lines: string[] = [];
+    lines.push(`📏 *${clientName}'s Measurements*`);
+    lines.push(`─────────────────`);
+    lines.push(
+      `Recorded: ${new Date(latest.created_at).toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })}`,
+    );
+    lines.push(`Unit: ${activeUnit}`);
+    lines.push(``);
+
+    const standardLines: string[] = [];
+    for (const key of STANDARD_FIELDS) {
+      const value = latest[key];
+      if (value !== null && value !== undefined && value !== 0) {
+        standardLines.push(`${FIELD_LABELS[key]}: ${value} ${unitLabel}`);
+      }
+    }
+
+    if (standardLines.length > 0) {
+      lines.push("*Standard Measurements*");
+      lines.push(...standardLines);
+    }
+
+    if (
+      latest.custom_fields &&
+      Object.keys(latest.custom_fields).length > 0
+    ) {
+      lines.push("");
+      lines.push("*Custom Measurements*");
+      for (const [key, value] of Object.entries(latest.custom_fields)) {
+        if (value !== null && value !== 0 && value !== "") {
+          const label = key
+            .replace(/_/g, " ")
+            .split(" ")
+            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(" ");
+          lines.push(`${label}: ${value} ${unitLabel}`);
+        }
+      }
+    }
+
+    if (latest.notes?.trim()) {
+      lines.push("");
+      lines.push(`*Notes*`);
+      lines.push(latest.notes.trim());
+    }
+
+    lines.push("");
+    lines.push("_Shared via Tradepad_");
+
+    const message = lines.join("\n");
+
+    try {
+      await Share.share({ message });
+    } catch (err) {
+      console.error("Share measurements error:", err);
+    }
+  };
+
   const handleUnitChange = async (
     next: MeasurementUnitPreference,
   ): Promise<void> => {
@@ -100,6 +190,22 @@ export default function ClientMeasurementsScreen(): React.JSX.Element {
         <Text numberOfLines={1} style={styles.headerTitle}>
           {client ? `${client.full_name}'s Measurements` : "Measurements"}
         </Text>
+        {measurements.length > 0 ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Share measurements"
+            onPress={() => {
+              void handleShareMeasurements();
+            }}
+            style={styles.shareButton}
+          >
+            <Ionicons
+              color={COLORS.textSecondary}
+              name="share-social-outline"
+              size={22}
+            />
+          </Pressable>
+        ) : null}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Add measurement"
@@ -271,6 +377,13 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.extrabold,
     fontSize: FONT_SIZE.lg,
     marginHorizontal: SPACING.sm,
+  },
+  shareButton: {
+    alignItems: "center",
+    height: 44,
+    justifyContent: "center",
+    marginRight: SPACING.xs,
+    width: 44,
   },
   addButton: {
     alignItems: "center",
