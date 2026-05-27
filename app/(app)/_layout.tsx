@@ -107,6 +107,12 @@ export default function AppLayout(): React.JSX.Element {
           ),
         }}
       />
+      <Tabs.Screen
+        name="notifications"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

@@ -16,6 +16,7 @@ import { Button } from "../../components/ui/Button";
 import { ScreenWrapper } from "../../components/ui/ScreenWrapper";
 import { COLORS, FONTS, FONT_SIZE, ROUTES, SPACING } from "../../constants";
 import { useDashboard } from "../../hooks/useDashboard";
+import { useNotifications } from "../../hooks/useNotifications";
 
 const getTimeOfDay = (): string => {
   const hour = new Date().getHours();
@@ -44,6 +45,7 @@ export default function DashboardScreen(): React.JSX.Element {
     error,
     refetch,
   } = useDashboard();
+  const { unreadCount } = useNotifications();
 
   useFocusEffect(
     useCallback(() => {
@@ -79,12 +81,22 @@ export default function DashboardScreen(): React.JSX.Element {
           accessibilityRole="button"
           accessibilityLabel="Notifications"
           style={styles.bellButton}
+          onPress={() => router.push("/(app)/notifications")}
         >
-          <Ionicons
-            color={COLORS.textSecondary}
-            name="notifications-outline"
-            size={24}
-          />
+          <View style={styles.bellContainer}>
+            <Ionicons
+              color={COLORS.textSecondary}
+              name="notifications-outline"
+              size={24}
+            />
+            {unreadCount > 0 ? (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {unreadCount > 99 ? "99+" : String(unreadCount)}
+                </Text>
+              </View>
+            ) : null}
+          </View>
         </Pressable>
       </View>
 
@@ -193,6 +205,26 @@ const styles = StyleSheet.create({
     height: 44,
     justifyContent: "center",
     width: 44,
+  },
+  bellContainer: {
+    position: "relative",
+  },
+  badge: {
+    alignItems: "center",
+    backgroundColor: COLORS.error,
+    borderRadius: 10,
+    height: 18,
+    justifyContent: "center",
+    minWidth: 18,
+    paddingHorizontal: 4,
+    position: "absolute",
+    right: -4,
+    top: -4,
+  },
+  badgeText: {
+    color: COLORS.textPrimary,
+    fontFamily: FONTS.bold,
+    fontSize: 10,
   },
   dateText: {
     color: COLORS.textMuted,

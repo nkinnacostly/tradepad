@@ -1,0 +1,42 @@
+<svg width="100%" viewBox="0 0 690 690" role="img" style="" xmlns="http://www.w3.org/2000/svg">
+  <title style="fill:rgb(0, 0, 0);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">Tradepad splash screen</title>
+  <desc style="fill:rgb(0, 0, 0);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">Tradepad app splash screen with briefcase, naira symbol, and needle on dark navy background</desc>
+
+  <rect width="680" height="680" fill="#080D1A" style="fill:rgb(8, 13, 26);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Briefcase body -->
+  <rect x="190" y="280" width="300" height="220" rx="24" fill="none" stroke="#F5A623" stroke-width="12" style="fill:none;stroke:rgb(245, 166, 35);color:rgb(255, 255, 255);stroke-width:12px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Briefcase handle -->
+  <path d="M280 280 L280 248 Q280 228 300 228 L380 228 Q400 228 400 248 L400 280" fill="none" stroke="#F5A623" stroke-width="12" stroke-linecap="round" style="fill:none;stroke:rgb(245, 166, 35);color:rgb(255, 255, 255);stroke-width:12px;stroke-linecap:round;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Briefcase middle line -->
+  <line x1="190" y1="370" x2="490" y2="370" stroke="#F5A623" stroke-width="10" style="fill:rgb(0, 0, 0);stroke:rgb(245, 166, 35);color:rgb(255, 255, 255);stroke-width:10px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Naira symbol - vertical strokes -->
+  <line x1="310" y1="300" x2="310" y2="460" stroke="#F5A623" stroke-width="11" stroke-linecap="round" style="fill:rgb(0, 0, 0);stroke:rgb(245, 166, 35);color:rgb(255, 255, 255);stroke-width:11px;stroke-linecap:round;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <line x1="370" y1="300" x2="370" y2="460" stroke="#F5A623" stroke-width="11" stroke-linecap="round" style="fill:rgb(0, 0, 0);stroke:rgb(245, 166, 35);color:rgb(255, 255, 255);stroke-width:11px;stroke-linecap:round;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Naira symbol - diagonal -->
+  <line x1="305" y1="310" x2="375" y2="450" stroke="#F5A623" stroke-width="11" stroke-linecap="round" style="fill:rgb(0, 0, 0);stroke:rgb(245, 166, 35);color:rgb(255, 255, 255);stroke-width:11px;stroke-linecap:round;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Naira symbol - horizontal bars -->
+  <line x1="295" y1="355" x2="385" y2="355" stroke="#F5A623" stroke-width="9" stroke-linecap="round" style="fill:rgb(0, 0, 0);stroke:rgb(245, 166, 35);color:rgb(255, 255, 255);stroke-width:9px;stroke-linecap:round;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <line x1="295" y1="405" x2="385" y2="405" stroke="#F5A623" stroke-width="9" stroke-linecap="round" style="fill:rgb(0, 0, 0);stroke:rgb(245, 166, 35);color:rgb(255, 255, 255);stroke-width:9px;stroke-linecap:round;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Needle -->
+  <line x1="430" y1="245" x2="520" y2="380" stroke="#F5A623" stroke-width="9" stroke-linecap="round" style="fill:rgb(0, 0, 0);stroke:rgb(245, 166, 35);color:rgb(255, 255, 255);stroke-width:9px;stroke-linecap:round;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- Needle eye -->
+  <ellipse cx="435" cy="252" rx="10" ry="6" transform="rotate(-35 435 252)" fill="none" stroke="#F5A623" stroke-width="7" style="fill:none;stroke:rgb(245, 166, 35);color:rgb(255, 255, 255);stroke-width:7px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- Needle tip -->
+  <circle cx="517" cy="376" r="4" fill="#F5A623" style="fill:rgb(245, 166, 35);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Thread curve -->
+  <path d="M435 252 Q460 210 510 230 Q560 250 540 290" fill="none" stroke="#F5A623" stroke-width="5" stroke-linecap="round" opacity="0.7" style="fill:none;stroke:rgb(245, 166, 35);color:rgb(255, 255, 255);stroke-width:5px;stroke-linecap:round;stroke-linejoin:miter;opacity:0.7;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- App name -->
+  <text x="340" y="560" text-anchor="middle" font-family="sans-serif" font-size="42" font-weight="700" fill="#F5A623" letter-spacing="6" style="fill:rgb(245, 166, 35);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:sans-serif;font-size:42px;font-weight:700;text-anchor:middle;dominant-baseline:auto">TRADEPAD</text>
+
+  <!-- Tagline -->
+  <text x="340" y="600" text-anchor="middle" font-family="sans-serif" font-size="16" font-weight="400" fill="#F5A623" opacity="0.6" letter-spacing="2" style="fill:rgb(245, 166, 35);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.6;font-family:sans-serif;font-size:16px;font-weight:400;text-anchor:middle;dominant-baseline:auto">YOUR BUSINESS. SIMPLIFIED.</text>
+</svg>

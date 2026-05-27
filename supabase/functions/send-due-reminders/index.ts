@@ -7,13 +7,9 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SERVICE_ROLE_KEY")!,
     );
 
-    // Get tomorrow's date range
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStart = new Date(tomorrow);
-    tomorrowStart.setHours(0, 0, 0, 0);
-    const tomorrowEnd = new Date(tomorrow);
-    tomorrowEnd.setHours(23, 59, 59, 999);
+    const tomorrowStr = tomorrow.toISOString().split("T")[0];
 
     // Find all jobs due tomorrow that are not delivered
     const { data: jobs, error: jobsError } = await supabase
@@ -26,8 +22,7 @@ Deno.serve(async (req: Request) => {
         owner_id,
         clients (full_name)
       `)
-      .gte("due_date", tomorrowStart.toISOString().split("T")[0])
-      .lte("due_date", tomorrowEnd.toISOString().split("T")[0])
+      .eq("due_date", tomorrowStr)
       .neq("status", "delivered");
 
     if (jobsError) {
@@ -50,8 +45,7 @@ Deno.serve(async (req: Request) => {
     const { data: profiles, error: profilesError } = await supabase
       .from("profiles")
       .select("id, push_token, business_name")
-      .in("id", ownerIds)
-      .not("push_token", "is", null);
+      .in("id", ownerIds);
 
     if (profilesError) {
       console.error("Profiles query error:", profilesError);
@@ -60,66 +54,88 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const tokenMap = new Map(
-      (profiles ?? []).map((p) => [p.id, p.push_token]),
+    const profileMap = new Map(
+      (profiles ?? []).map((p) => [p.id, p]),
     );
 
-    // Build notification messages
+    // Build push messages and notification records
     const messages: object[] = [];
+    const notificationInserts: object[] = [];
 
     for (const job of jobs) {
-      const token = tokenMap.get(job.owner_id);
-      if (!token) continue;
-
+      const profile = profileMap.get(job.owner_id);
       const clientName =
         (job.clients as { full_name: string } | null)?.full_name ??
         "A client";
 
-      messages.push({
-        to: token,
-        sound: "default",
-        title: "Job Due Tomorrow 📅",
-        body: `${job.title} for ${clientName} is due tomorrow.`,
-        data: { job_id: job.id },
+      const title = "Job Due Tomorrow 📅";
+      const body = `${job.title} for ${clientName} is due tomorrow.`;
+
+      // Add notification record
+      notificationInserts.push({
+        owner_id: job.owner_id,
+        title,
+        body,
+        type: "due_reminder",
+        job_id: job.id,
+        is_read: false,
       });
+
+      // Add push message if token exists
+      if (profile?.push_token) {
+        messages.push({
+          to: profile.push_token,
+          sound: "default",
+          title,
+          body,
+          data: { job_id: job.id, type: "due_reminder" },
+        });
+      }
     }
 
-    if (messages.length === 0) {
-      return new Response(
-        JSON.stringify({ message: "No tokens found", sent: 0 }),
-        { status: 200 },
-      );
+    // Insert notification records into database
+    if (notificationInserts.length > 0) {
+      const { error: insertError } = await supabase
+        .from("notifications")
+        .insert(notificationInserts);
+
+      if (insertError) {
+        console.error("Notification insert error:", insertError);
+      }
     }
 
-    // Send via Expo Push API (batch up to 100)
-    const chunks: object[][] = [];
-    for (let i = 0; i < messages.length; i += 100) {
-      chunks.push(messages.slice(i, i + 100));
-    }
-
+    // Send push notifications
     let totalSent = 0;
-    for (const chunk of chunks) {
-      const response = await fetch("https://exp.host/--/api/v2/push/send", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-          "Accept-Encoding": "gzip, deflate",
-        },
-        body: JSON.stringify(chunk),
-      });
+    if (messages.length > 0) {
+      const chunks: object[][] = [];
+      for (let i = 0; i < messages.length; i += 100) {
+        chunks.push(messages.slice(i, i + 100));
+      }
 
-      if (response.ok) {
-        totalSent += chunk.length;
-      } else {
-        console.error("Expo push error:", await response.text());
+      for (const chunk of chunks) {
+        const response = await fetch("https://exp.host/--/api/v2/push/send", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Accept-Encoding": "gzip, deflate",
+          },
+          body: JSON.stringify(chunk),
+        });
+
+        if (response.ok) {
+          totalSent += chunk.length;
+        } else {
+          console.error("Expo push error:", await response.text());
+        }
       }
     }
 
     return new Response(
       JSON.stringify({
         message: "Reminders sent",
-        sent: totalSent,
+        notifications_created: notificationInserts.length,
+        push_sent: totalSent,
         total_jobs: jobs.length,
       }),
       { status: 200 },
