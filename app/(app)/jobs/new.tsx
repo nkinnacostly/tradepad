@@ -78,6 +78,17 @@ interface LaundryItemRow {
 
 const newLocalId = (): string => `${Date.now()}-${Math.random()}`;
 
+const formatNumberInput = (raw: string): string => {
+  const digits = raw.replace(/[^0-9]/g, "");
+  if (!digits) return "";
+  return Number(digits).toLocaleString("en-NG");
+};
+
+const parseFormattedNumber = (formatted: string): number => {
+  const digits = formatted.replace(/[^0-9]/g, "");
+  return digits ? Number(digits) : 0;
+};
+
 export default function NewJobScreen(): React.JSX.Element {
   const { clientId } = useLocalSearchParams<{ clientId?: string }>();
   const { clients, isLoading: clientsLoading } = useClients();
@@ -141,7 +152,7 @@ export default function NewJobScreen(): React.JSX.Element {
 
     const sum = laundryItems.reduce((acc, row) => {
       const q = parseFloat(row.quantity) || 0;
-      const p = parseFloat(row.unit_price) || 0;
+      const p = parseFormattedNumber(row.unit_price);
       return acc + q * p;
     }, 0);
 
@@ -186,12 +197,6 @@ export default function NewJobScreen(): React.JSX.Element {
     );
   };
 
-  const lineTotal = (row: LaundryItemRow): number => {
-    const q = parseFloat(row.quantity) || 0;
-    const p = parseFloat(row.unit_price) || 0;
-    return q * p;
-  };
-
   const onSubmit = async (data: NewJobFormData): Promise<void> => {
     if (!selectedClient) {
       setSubmitError("Select a client first.");
@@ -226,7 +231,7 @@ export default function NewJobScreen(): React.JSX.Element {
               job_id: job.id,
               name: row.name.trim(),
               quantity: parseFloat(row.quantity) || 0,
-              unit_price: parseFloat(row.unit_price) || 0,
+              unit_price: parseFormattedNumber(row.unit_price),
             })),
           );
         }
@@ -401,33 +406,6 @@ export default function NewJobScreen(): React.JSX.Element {
         )}
       />
 
-      <Text style={styles.amountLabel}>TOTAL AMOUNT</Text>
-      <View style={styles.amountRow}>
-        <Text style={styles.currencyPrefix}>₦</Text>
-        <Controller
-          control={control}
-          name="total_amount"
-          render={({ field: { onChange, onBlur, value } }) => (
-            <TextInput
-              editable={!isLaundry}
-              keyboardType="decimal-pad"
-              placeholder="0"
-              placeholderTextColor={COLORS.textMuted}
-              style={[
-                styles.amountInput,
-                isLaundry && styles.amountInputDisabled,
-              ]}
-              value={value}
-              onBlur={onBlur}
-              onChangeText={onChange}
-            />
-          )}
-        />
-      </View>
-      {errors.total_amount?.message ? (
-        <Text style={styles.fieldError}>{errors.total_amount.message}</Text>
-      ) : null}
-
       {isTailor ? (
         <>
           <Controller
@@ -493,18 +471,16 @@ export default function NewJobScreen(): React.JSX.Element {
                 }
               />
               <TextInput
-                keyboardType="decimal-pad"
+                keyboardType="number-pad"
                 placeholder="Price"
                 placeholderTextColor={COLORS.textMuted}
                 style={styles.itemPrice}
-                value={row.unit_price}
-                onChangeText={(v) =>
-                  updateLaundryItem(row.localId, "unit_price", v)
-                }
+                value={formatNumberInput(row.unit_price)}
+                onChangeText={(v) => {
+                  const digits = v.replace(/[^0-9]/g, "");
+                  updateLaundryItem(row.localId, "unit_price", digits);
+                }}
               />
-              <Text style={styles.itemLineTotal}>
-                ₦{lineTotal(row).toLocaleString("en-NG")}
-              </Text>
               <Pressable
                 accessibilityRole="button"
                 hitSlop={8}
@@ -522,6 +498,33 @@ export default function NewJobScreen(): React.JSX.Element {
             onPress={addLaundryItem}
           />
         </View>
+      ) : null}
+
+      <Text style={styles.amountLabel}>TOTAL AMOUNT</Text>
+      <View style={styles.amountRow}>
+        <Text style={styles.currencyPrefix}>₦</Text>
+        <Controller
+          control={control}
+          name="total_amount"
+          render={({ field: { onChange, onBlur, value } }) => (
+            <TextInput
+              editable={!isLaundry}
+              keyboardType="decimal-pad"
+              placeholder="0"
+              placeholderTextColor={COLORS.textMuted}
+              style={[
+                styles.amountInput,
+                isLaundry && styles.amountInputDisabled,
+              ]}
+              value={isLaundry ? formatNumberInput(value) : value}
+              onBlur={onBlur}
+              onChangeText={onChange}
+            />
+          )}
+        />
+      </View>
+      {errors.total_amount?.message ? (
+        <Text style={styles.fieldError}>{errors.total_amount.message}</Text>
       ) : null}
 
       <Controller
@@ -823,12 +826,6 @@ const styles = StyleSheet.create({
     minHeight: 44,
     paddingHorizontal: SPACING.sm,
     width: 88,
-  },
-  itemLineTotal: {
-    color: COLORS.textSecondary,
-    fontFamily: FONTS.medium,
-    fontSize: FONT_SIZE.xs,
-    width: 72,
   },
   trashButton: {
     alignItems: "center",

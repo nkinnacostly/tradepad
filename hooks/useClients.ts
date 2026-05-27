@@ -75,6 +75,19 @@ export const createClient = async (
   try {
     const userId = await getCurrentUserId();
 
+    if (params.phone.trim().length > 0) {
+      const { data: existing } = await supabase
+        .from("clients")
+        .select("id")
+        .eq("owner_id", userId)
+        .eq("phone", params.phone.trim())
+        .maybeSingle();
+
+      if (existing) {
+        throw new Error("A client with this phone number already exists.");
+      }
+    }
+
     const { data, error } = await supabase
       .from("clients")
       .insert({
@@ -96,6 +109,9 @@ export const createClient = async (
     const message =
       error instanceof Error ? error.message : "Could not create client";
     console.error("createClient error:", error);
+    if (message === "A client with this phone number already exists.") {
+      throw new Error(message);
+    }
     throw new Error(mapClientError(message));
   }
 };
@@ -106,6 +122,20 @@ export const updateClient = async (
 ): Promise<void> => {
   try {
     const userId = await getCurrentUserId();
+
+    if (params.phone !== undefined && params.phone.trim().length > 0) {
+      const { data: existing } = await supabase
+        .from("clients")
+        .select("id")
+        .eq("owner_id", userId)
+        .eq("phone", params.phone.trim())
+        .neq("id", id)
+        .maybeSingle();
+
+      if (existing) {
+        throw new Error("A client with this phone number already exists.");
+      }
+    }
 
     const { error } = await supabase
       .from("clients")
@@ -124,6 +154,9 @@ export const updateClient = async (
     const message =
       error instanceof Error ? error.message : "Could not update client";
     console.error("updateClient error:", error);
+    if (message === "A client with this phone number already exists.") {
+      throw new Error(message);
+    }
     throw new Error(mapClientError(message));
   }
 };
