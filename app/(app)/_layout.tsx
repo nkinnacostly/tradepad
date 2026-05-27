@@ -5,6 +5,7 @@ import { useCallback } from "react";
 import { COLORS, FONTS, FONT_SIZE, ROUTES } from "../../constants";
 import { signOut, useAuth } from "../../hooks/useAuth";
 import { useBackgroundTimer } from "../../hooks/useBackgroundTimer";
+import { usePushNotifications } from "../../hooks/usePushNotifications";
 
 export default function AppLayout(): React.JSX.Element {
   useAuth();
@@ -19,6 +20,7 @@ export default function AppLayout(): React.JSX.Element {
   }, []);
 
   useBackgroundTimer(handleBackgroundTimeout, 2 * 60 * 1000);
+  usePushNotifications();
 
   return (
     <Tabs

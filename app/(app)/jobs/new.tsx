@@ -108,6 +108,7 @@ export default function NewJobScreen(): React.JSX.Element {
     formState: { errors, isSubmitting },
   } = useForm<NewJobFormData>({
     resolver: zodResolver(schema),
+    mode: "onSubmit",
     defaultValues: {
       title: "",
       description: "",
@@ -523,7 +524,7 @@ export default function NewJobScreen(): React.JSX.Element {
           )}
         />
       </View>
-      {errors.total_amount?.message ? (
+      {!isLaundry && errors.total_amount?.message ? (
         <Text style={styles.fieldError}>{errors.total_amount.message}</Text>
       ) : null}
 
