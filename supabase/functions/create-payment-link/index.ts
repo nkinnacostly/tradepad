@@ -76,6 +76,39 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // 4b. Verify job belongs to this user and get details
+    const { data: job, error: jobError } = await supabase
+      .from("jobs")
+      .select("id, owner_id, total_amount, amount_paid")
+      .eq("id", job_id)
+      .eq("owner_id", user.id)
+      .single();
+
+    if (jobError || !job) {
+      return new Response(
+        JSON.stringify({ error: "Job not found" }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    // Cap amount at outstanding balance
+    const outstanding = Number(job.total_amount) - Number(job.amount_paid);
+    if (outstanding <= 0) {
+      return new Response(
+        JSON.stringify({ error: "This job has no outstanding balance" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    // Use lesser of requested amount and outstanding
+    const safeAmount = Math.min(Number(amount), outstanding);
+
     // 5. Generate unique reference
     const reference = `TRADEPAD-${job_id}-${Date.now()}`;
 
@@ -91,7 +124,7 @@ const flwResponse = await fetch(
     },
     body: JSON.stringify({
       tx_ref: reference,
-      amount,
+      amount: safeAmount,
       currency: "NGN",
       redirect_url: "https://tradepad.app/payment-complete",
       customer: {

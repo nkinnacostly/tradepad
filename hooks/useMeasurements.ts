@@ -342,6 +342,18 @@ export const createMeasurement = async (
   try {
     const userId = await getCurrentUserId();
 
+    // Verify client belongs to this user
+    const { data: client, error: clientError } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("id", params.client_id)
+      .eq("owner_id", userId)
+      .maybeSingle();
+
+    if (clientError || !client) {
+      throw new Error("Client not found");
+    }
+
     const insertPayload: Record<string, unknown> = {
       owner_id: userId,
       client_id: params.client_id,
@@ -372,6 +384,9 @@ export const createMeasurement = async (
     const message =
       error instanceof Error ? error.message : "Could not create measurement";
     console.error("createMeasurement error:", error);
+    if (message === "Client not found") {
+      throw new Error(message);
+    }
     throw new Error(mapMeasurementError(message));
   }
 };

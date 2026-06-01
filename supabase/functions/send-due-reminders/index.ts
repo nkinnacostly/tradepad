@@ -1,7 +1,24 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-cron-secret",
+};
+
 Deno.serve(async (req: Request) => {
   try {
+    // Verify cron secret — this function is called by pg_cron, not users
+    const cronSecret = Deno.env.get("CRON_SECRET");
+    const incomingSecret = req.headers.get("x-cron-secret");
+
+    if (!cronSecret || incomingSecret !== cronSecret) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SERVICE_ROLE_KEY")!,

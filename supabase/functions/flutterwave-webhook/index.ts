@@ -74,7 +74,7 @@ Deno.serve(async (req: Request) => {
     // Fetch current job
     const { data: job, error: jobError } = await supabase
       .from("jobs")
-      .select("id, amount_paid, owner_id")
+      .select("id, amount_paid, total_amount, owner_id")
       .eq("id", jobId)
       .single();
 
@@ -89,7 +89,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Insert payment record
+    // Insert payment record — skip entirely if duplicate reference
     const { error: paymentError } = await supabase
       .from("payments")
       .insert({
@@ -102,11 +102,34 @@ Deno.serve(async (req: Request) => {
       });
 
     if (paymentError) {
+      if (paymentError.code === "23505") {
+        // unique_violation — already processed, return success
+        console.log("Webhook: duplicate reference, skipping:", reference);
+        return new Response(
+          JSON.stringify({ success: true, skipped: true }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
       console.error("Webhook: payment insert error", paymentError);
+      return new Response(
+        JSON.stringify({ error: "Payment recording failed" }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
-    // Update job amount_paid
-    const newAmountPaid = Number(job.amount_paid) + amount;
+    // Only update job balance if payment insert succeeded
+    // Cap at total_amount to prevent over-credit
+    const newAmountPaid = Math.min(
+      Number(job.amount_paid) + amount,
+      Number(job.total_amount),
+    );
+
     const { error: updateError } = await supabase
       .from("jobs")
       .update({ amount_paid: newAmountPaid })

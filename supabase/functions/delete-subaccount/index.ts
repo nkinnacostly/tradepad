@@ -46,6 +46,33 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Verify this subaccount belongs to the authenticated user
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("flutterwave_subaccount_id")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return new Response(
+        JSON.stringify({ error: "Profile not found" }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    if (profile.flutterwave_subaccount_id !== subaccount_id) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
     const flwResponse = await fetch(
       `https://api.flutterwave.com/v3/subaccounts/${subaccount_id}`,
       {

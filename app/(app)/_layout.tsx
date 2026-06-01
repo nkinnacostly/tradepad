@@ -1,14 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, Tabs } from "expo-router";
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 
 import { COLORS, FONTS, FONT_SIZE, ROUTES } from "../../constants";
 import { signOut, useAuth } from "../../hooks/useAuth";
 import { useBackgroundTimer } from "../../hooks/useBackgroundTimer";
 import { usePushNotifications } from "../../hooks/usePushNotifications";
 
-export default function AppLayout(): React.JSX.Element {
-  useAuth();
+export default function AppLayout(): React.JSX.Element | null {
+  const { user, isLoading } = useAuth();
 
   const handleBackgroundTimeout = useCallback(async (): Promise<void> => {
     try {
@@ -21,6 +21,21 @@ export default function AppLayout(): React.JSX.Element {
 
   useBackgroundTimer(handleBackgroundTimeout, 2 * 60 * 1000);
   usePushNotifications();
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!user) {
+      router.replace(ROUTES.login);
+    }
+  }, [user, isLoading]);
+
+  if (isLoading) {
+    return null;
+  }
+
+  if (!user) {
+    return null;
+  }
 
   return (
     <Tabs
