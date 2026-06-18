@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
@@ -15,6 +15,7 @@ import {
   FONT_SIZE,
   FONT_WEIGHT,
   RADIUS,
+  ROUTES,
   SPACING,
 } from "../../../constants";
 import { createClient } from "../../../hooks/useClients";
@@ -36,6 +37,7 @@ const schema = z.object({
 type NewClientFormData = z.infer<typeof schema>;
 
 export default function NewClientScreen(): React.JSX.Element {
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const phoneRef = useRef<TextInput>(null);
   const notesRef = useRef<TextInput>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -59,13 +61,16 @@ export default function NewClientScreen(): React.JSX.Element {
     setSubmitError(null);
 
     try {
-      await createClient({
+      const client = await createClient({
         full_name: data.full_name,
         phone: data.phone,
         notes: data.notes,
       });
-      // router.back();
-      router.replace("/(app)/clients");
+      if (returnTo === "newJob") {
+        router.replace(`${ROUTES.newJob}?clientId=${client.id}`);
+      } else {
+        router.replace(ROUTES.clients);
+      }
     } catch (error) {
       const message =
         error instanceof Error

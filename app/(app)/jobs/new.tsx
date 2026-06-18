@@ -24,6 +24,7 @@ import {
   FONT_SIZE,
   FONT_WEIGHT,
   RADIUS,
+  ROUTES,
   SPACING,
 } from "../../../constants";
 import { useClients } from "../../../hooks/useClients";
@@ -87,6 +88,14 @@ const formatNumberInput = (raw: string): string => {
 const parseFormattedNumber = (formatted: string): number => {
   const digits = formatted.replace(/[^0-9]/g, "");
   return digits ? Number(digits) : 0;
+};
+
+const hexToRgba = (hex: string, alpha: number): string => {
+  const normalized = hex.replace("#", "");
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
 export default function NewJobScreen(): React.JSX.Element {
@@ -294,6 +303,43 @@ export default function NewJobScreen(): React.JSX.Element {
           contentContainerStyle={styles.clientListContent}
           data={filteredClients}
           keyExtractor={(item) => item.id}
+          ListHeaderComponent={
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Create new client"
+              onPress={() => {
+                router.push(`${ROUTES.newClient}?returnTo=newJob`);
+              }}
+              style={({ pressed }) => [
+                styles.addClientRow,
+                pressed && styles.clientRowPressed,
+              ]}
+            >
+              <View
+                style={[
+                  styles.addClientIcon,
+                  { backgroundColor: hexToRgba(COLORS.primary, 0.15) },
+                ]}
+              >
+                <Ionicons
+                  color={COLORS.primary}
+                  name="person-add-outline"
+                  size={20}
+                />
+              </View>
+              <View style={styles.clientRowText}>
+                <Text style={styles.addClientTitle}>Create new client</Text>
+                <Text style={styles.addClientSubtitle}>
+                  Add someone not in your list
+                </Text>
+              </View>
+              <Ionicons
+                color={COLORS.textMuted}
+                name="chevron-forward"
+                size={18}
+              />
+            </Pressable>
+          }
           renderItem={({ item }) => {
             const selected = selectedClient?.id === item.id;
 
@@ -597,6 +643,7 @@ const styles = StyleSheet.create({
   },
   stepTitle: {
     color: COLORS.textPrimary,
+    flex: 1,
     fontFamily: FONTS.extrabold,
     fontSize: FONT_SIZE.xl,
     marginLeft: SPACING.xs,
@@ -621,6 +668,36 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.regular,
     fontSize: FONT_SIZE.md,
     height: 48,
+  },
+  addClientRow: {
+    alignItems: "center",
+    backgroundColor: COLORS.surface,
+    borderColor: COLORS.primary,
+    borderRadius: RADIUS.lg,
+    borderStyle: "dashed",
+    borderWidth: 1,
+    flexDirection: "row",
+    marginBottom: SPACING.sm,
+    padding: SPACING.md,
+  },
+  addClientIcon: {
+    alignItems: "center",
+    borderRadius: 18,
+    height: 36,
+    justifyContent: "center",
+    marginRight: SPACING.sm,
+    width: 36,
+  },
+  addClientTitle: {
+    color: COLORS.primary,
+    fontFamily: FONTS.semibold,
+    fontSize: FONT_SIZE.md,
+  },
+  addClientSubtitle: {
+    color: COLORS.textMuted,
+    fontFamily: FONTS.regular,
+    fontSize: FONT_SIZE.sm,
+    marginTop: 2,
   },
   clientListContent: {
     paddingBottom: 120,

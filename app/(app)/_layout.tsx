@@ -85,6 +85,11 @@ export default function AppLayout(): React.JSX.Element | null {
       />
       <Tabs.Screen
         name="clients"
+        listeners={{
+          tabPress: () => {
+            router.replace(ROUTES.clients);
+          },
+        }}
         options={{
           title: "Clients",
           tabBarIcon: ({ color, focused }) => (
@@ -98,6 +103,11 @@ export default function AppLayout(): React.JSX.Element | null {
       />
       <Tabs.Screen
         name="jobs"
+        listeners={{
+          tabPress: () => {
+            router.replace(ROUTES.jobs);
+          },
+        }}
         options={{
           title: "Jobs",
           tabBarIcon: ({ color, focused }) => (
@@ -111,6 +121,11 @@ export default function AppLayout(): React.JSX.Element | null {
       />
       <Tabs.Screen
         name="settings"
+        listeners={{
+          tabPress: () => {
+            router.replace(ROUTES.settings);
+          },
+        }}
         options={{
           title: "Settings",
           tabBarIcon: ({ color, focused }) => (
