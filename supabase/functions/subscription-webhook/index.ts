@@ -50,6 +50,8 @@ Deno.serve(async (req: Request) => {
   try {
     // Step 2 — Parse
     const payload = await req.json();
+    // TEMPORARY: inspect the real Flutterwave payload shape.
+    console.log("subscription-webhook raw body:", JSON.stringify(payload));
     const data = payload?.data;
 
     const txRef: string = data?.tx_ref ?? "";
