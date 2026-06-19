@@ -52,23 +52,21 @@ Deno.serve(async (req: Request) => {
     const payload = await req.json();
     // TEMPORARY: inspect the real Flutterwave payload shape.
     console.log("subscription-webhook raw body:", JSON.stringify(payload));
+    // The webhook body is used ONLY to learn which transaction to verify.
+    // Metadata (owner_id, billing_cycle) is read from the verify response
+    // below — the real Flutterwave webhook body does not nest meta under data.
     const data = payload?.data;
 
     const txRef: string = data?.tx_ref ?? "";
+    const transactionId = data?.id;
 
     // Not a subscription payment — acknowledge and no-op.
     if (!txRef.startsWith("SUB-")) {
       return ack({ received: true });
     }
 
-    const ownerId: string | undefined = data?.meta?.owner_id;
-    const billingCycle: string | undefined = data?.meta?.billing_cycle;
-    const transactionId = data?.id;
-
-    if (!ownerId || !transactionId) {
-      console.error("subscription-webhook: missing owner_id or transaction id", {
-        txRef,
-      });
+    if (!transactionId) {
+      console.error("subscription-webhook: missing transaction id", { txRef });
       return ack({ received: true });
     }
 
@@ -117,6 +115,19 @@ Deno.serve(async (req: Request) => {
         verifyStatus: verificationData?.status,
         chargeStatus: flutterwaveData?.status,
         currency: flutterwaveData?.currency,
+      });
+      return ack({ received: true });
+    }
+
+    // Trust the verify response for everything else: owner_id and billing_cycle
+    // come from data.meta — the same shape verify-subscription reads.
+    const ownerId: string | undefined = flutterwaveData?.meta?.owner_id;
+    const billingCycle: string | undefined =
+      flutterwaveData?.meta?.billing_cycle;
+
+    if (!ownerId) {
+      console.error("subscription-webhook: missing owner_id in verify meta", {
+        txRef,
       });
       return ack({ received: true });
     }
