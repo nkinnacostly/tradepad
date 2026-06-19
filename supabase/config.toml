@@ -417,6 +417,17 @@ entrypoint = "./functions/create-payment-link/index.ts"
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/create-payment-link/*.html" ]
 
+[functions.create-subscription-link]
+enabled = true
+verify_jwt = true
+import_map = "./functions/create-subscription-link/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/create-subscription-link/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/create-subscription-link/*.html" ]
+
 [functions.resolve-account]
 enabled = true
 verify_jwt = true
@@ -449,6 +460,28 @@ entrypoint = "./functions/flutterwave-webhook/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/flutterwave-webhook/*.html" ]
+
+[functions.subscription-webhook]
+enabled = true
+verify_jwt = true
+import_map = "./functions/subscription-webhook/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/subscription-webhook/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/subscription-webhook/*.html" ]
+
+[functions.verify-subscription]
+enabled = true
+verify_jwt = true
+import_map = "./functions/verify-subscription/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/verify-subscription/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/verify-subscription/*.html" ]
 
 [functions.delete-subaccount]
 enabled = true

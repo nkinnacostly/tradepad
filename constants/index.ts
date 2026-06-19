@@ -104,4 +104,5 @@ export const ROUTES = {
   jobs: "/(app)/jobs" as const,
   newJob: "/(app)/jobs/new" as const,
   settings: "/(app)/settings" as const,
+  upgrade: "/(app)/upgrade" as const,
 };

@@ -6,12 +6,22 @@ export type PaymentMethod = "cash" | "transfer" | "online";
 
 export type MeasurementUnitPreference = "inches" | "cm";
 
+export type SubscriptionTier = "free" | "pro";
+
+export type SubscriptionStatus = "active" | "expired" | "inactive";
+
+export type BillingCycle = "monthly" | "annual";
+
 export interface Profile {
   id: string;
   business_name: string;
   business_type: BusinessType;
   phone: string;
   unit_preference?: MeasurementUnitPreference;
+  subscription_tier: SubscriptionTier;
+  subscription_status: SubscriptionStatus;
+  subscription_expires_at: string | null;
+  billing_cycle: BillingCycle | null;
   created_at: string;
   updated_at: string;
 }

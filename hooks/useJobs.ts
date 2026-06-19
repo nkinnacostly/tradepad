@@ -43,6 +43,13 @@ export interface UseJobResult {
   refetch: () => Promise<void>;
 }
 
+export interface UseActiveJobCountResult {
+  count: number;
+  isLoading: boolean;
+  error: string | null;
+  refetch: () => Promise<void>;
+}
+
 export interface CreateJobParams {
   client_id: string;
   title: string;
@@ -347,6 +354,42 @@ export const useJobs = (): UseJobsResult => {
     error: state.error,
     refetch: fetchAll,
   };
+};
+
+export const useActiveJobCount = (): UseActiveJobCountResult => {
+  const [count, setCount] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchCount = useCallback(async (): Promise<void> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const userId = await getCurrentUserId();
+
+      const { count: total, error: countError } = await supabase
+        .from("jobs")
+        .select("*", { count: "exact", head: true })
+        .eq("owner_id", userId)
+        .neq("status", "delivered");
+
+      if (countError) throw countError;
+
+      setCount(total ?? 0);
+    } catch (err) {
+      console.error("useActiveJobCount fetchCount error:", err);
+      setError("Could not load active job count.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchCount();
+  }, [fetchCount]);
+
+  return { count, isLoading, error, refetch: fetchCount };
 };
 
 export const useJob = (id: string): UseJobResult => {

@@ -2,6 +2,7 @@ import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 
 import { supabase } from "../lib/supabase";
+import type { BillingCycle } from "../types";
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
@@ -18,6 +19,10 @@ export interface GeneratePaymentLinkParams {
   amount: number;
   customer_name: string;
   customer_phone: string;
+}
+
+export interface GenerateSubscriptionLinkParams {
+  billing_cycle: BillingCycle;
 }
 
 export interface UseProfileBankStatusResult {
@@ -37,6 +42,9 @@ interface EdgeErrorBody {
   already_recorded?: boolean;
   amount?: number;
   message?: string;
+  is_pro?: boolean;
+  expires_at?: string | null;
+  already_processed?: boolean;
 }
 
 export interface PaymentLinkResult {
@@ -210,6 +218,57 @@ export const generatePaymentLink = async (
     const message =
       error instanceof Error ? error.message : "Could not generate payment link";
     console.error("generatePaymentLink error:", error);
+    throw new Error(mapPaymentError(message));
+  }
+};
+
+export const generateSubscriptionLink = async (
+  params: GenerateSubscriptionLinkParams,
+): Promise<PaymentLinkResult> => {
+  try {
+    const payload = await invokeEdgeFunction("create-subscription-link", {
+      billing_cycle: params.billing_cycle,
+    });
+
+    if (!payload.payment_link) {
+      throw new Error("Payment link was not returned");
+    }
+
+    return {
+      payment_link: payload.payment_link,
+      tx_ref: payload.tx_ref ?? "",
+    };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Could not start upgrade";
+    console.error("generateSubscriptionLink error:", error);
+    throw new Error(mapPaymentError(message));
+  }
+};
+
+export interface VerifySubscriptionResult {
+  isPro: boolean;
+  expiresAt: string | null;
+  message: string;
+}
+
+export const verifySubscription = async (params: {
+  tx_ref: string;
+}): Promise<VerifySubscriptionResult> => {
+  try {
+    const payload = await invokeEdgeFunction("verify-subscription", {
+      tx_ref: params.tx_ref,
+    });
+
+    return {
+      isPro: payload.is_pro ?? false,
+      expiresAt: payload.expires_at ?? null,
+      message: payload.message ?? "",
+    };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Could not verify subscription";
+    console.error("verifySubscription error:", error);
     throw new Error(mapPaymentError(message));
   }
 };

@@ -18,6 +18,7 @@ import { Button } from "../../../components/ui/Button";
 import { DatePicker } from "../../../components/ui/DatePicker";
 import { Input } from "../../../components/ui/Input";
 import { ScreenWrapper } from "../../../components/ui/ScreenWrapper";
+import { UpgradePrompt } from "../../../components/UpgradePrompt";
 import {
   COLORS,
   FONTS,
@@ -27,16 +28,21 @@ import {
   ROUTES,
   SPACING,
 } from "../../../constants";
+import { useSubscription } from "../../../contexts/SubscriptionContext";
 import { useClients } from "../../../hooks/useClients";
 import {
   createJob,
   createJobItems,
+  useActiveJobCount,
   useProfileBusinessType,
 } from "../../../hooks/useJobs";
 import type { Client } from "../../../types";
 
 const INPUT_BG = "#0D1526";
 const INPUT_BORDER = "#1E293B";
+
+const ACTIVE_JOB_LIMIT_MESSAGE =
+  "You've reached the free plan limit of 3 active jobs. Mark a job as delivered to free up space, or upgrade to Pro for unlimited jobs.";
 
 const schema = z.object({
   title: z.string().min(2, "Job title must be at least 2 characters"),
@@ -102,6 +108,8 @@ export default function NewJobScreen(): React.JSX.Element {
   const { clientId } = useLocalSearchParams<{ clientId?: string }>();
   const { clients, isLoading: clientsLoading } = useClients();
   const { businessType, isLoading: profileLoading } = useProfileBusinessType();
+  const { canCreateActiveJob } = useSubscription();
+  const { count: activeJobCount } = useActiveJobCount();
 
   const [step, setStep] = useState<1 | 2>(clientId ? 2 : 1);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -109,6 +117,7 @@ export default function NewJobScreen(): React.JSX.Element {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [laundryItems, setLaundryItems] = useState<LaundryItemRow[]>([]);
   const [isNotesFocused, setIsNotesFocused] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
 
   const {
     control,
@@ -210,6 +219,11 @@ export default function NewJobScreen(): React.JSX.Element {
   const onSubmit = async (data: NewJobFormData): Promise<void> => {
     if (!selectedClient) {
       setSubmitError("Select a client first.");
+      return;
+    }
+
+    if (!canCreateActiveJob(activeJobCount)) {
+      setShowUpgrade(true);
       return;
     }
 
@@ -613,6 +627,13 @@ export default function NewJobScreen(): React.JSX.Element {
         isLoading={isSubmitting}
         label="Save Job"
         onPress={handleSubmit(onSubmit)}
+      />
+
+      <UpgradePrompt
+        message={ACTIVE_JOB_LIMIT_MESSAGE}
+        title="Active job limit reached"
+        visible={showUpgrade}
+        onClose={() => setShowUpgrade(false)}
       />
     </ScreenWrapper>
   );

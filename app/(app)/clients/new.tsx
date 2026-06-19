@@ -9,6 +9,7 @@ import { z } from "zod";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
 import { ScreenWrapper } from "../../../components/ui/ScreenWrapper";
+import { UpgradePrompt } from "../../../components/UpgradePrompt";
 import {
   COLORS,
   FONTS,
@@ -18,10 +19,14 @@ import {
   ROUTES,
   SPACING,
 } from "../../../constants";
-import { createClient } from "../../../hooks/useClients";
+import { useSubscription } from "../../../contexts/SubscriptionContext";
+import { createClient, useClientCount } from "../../../hooks/useClients";
 
 const INPUT_BG = "#0D1526";
 const INPUT_BORDER = "#1E293B";
+
+const CLIENT_LIMIT_MESSAGE =
+  "You've reached the free plan limit of 3 clients. Upgrade to Pro for unlimited clients.";
 
 const schema = z.object({
   full_name: z.string().min(2, "Name must be at least 2 characters"),
@@ -42,6 +47,10 @@ export default function NewClientScreen(): React.JSX.Element {
   const notesRef = useRef<TextInput>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isNotesFocused, setIsNotesFocused] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
+
+  const { canCreateClient } = useSubscription();
+  const { count: clientCount } = useClientCount();
 
   const {
     control,
@@ -58,6 +67,12 @@ export default function NewClientScreen(): React.JSX.Element {
 
   const onSubmit = async (data: NewClientFormData): Promise<void> => {
     if (isSubmitting) return;
+
+    if (!canCreateClient(clientCount)) {
+      setShowUpgrade(true);
+      return;
+    }
+
     setSubmitError(null);
 
     try {
@@ -175,6 +190,13 @@ export default function NewClientScreen(): React.JSX.Element {
         isLoading={isSubmitting}
         label="Save Client"
         onPress={handleSubmit(onSubmit)}
+      />
+
+      <UpgradePrompt
+        message={CLIENT_LIMIT_MESSAGE}
+        title="Client limit reached"
+        visible={showUpgrade}
+        onClose={() => setShowUpgrade(false)}
       />
     </ScreenWrapper>
   );
