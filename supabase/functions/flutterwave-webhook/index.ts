@@ -71,10 +71,10 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SERVICE_ROLE_KEY")!,
     );
 
-    // Fetch current job
+    // Fetch the job to resolve its owner and confirm it exists (404 otherwise).
     const { data: job, error: jobError } = await supabase
       .from("jobs")
-      .select("id, amount_paid, total_amount, owner_id")
+      .select("id, owner_id")
       .eq("id", jobId)
       .single();
 
@@ -89,31 +89,21 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Insert payment record — skip entirely if duplicate reference
-    const { error: paymentError } = await supabase
-      .from("payments")
-      .insert({
-        job_id: jobId,
-        owner_id: job.owner_id,
-        amount,
-        payment_method: "online",
-        reference,
-        notes: "Paid via Flutterwave payment link",
-      });
+    // Record the payment and update the job balance atomically. The RPC locks
+    // the job row, inserts the payment (idempotent on the unique reference),
+    // and applies the capped amount_paid update in a single transaction.
+    const { data: result, error: rpcError } = await supabase.rpc(
+      "record_job_payment",
+      {
+        p_job_id: jobId,
+        p_owner_id: job.owner_id,
+        p_reference: reference,
+        p_amount: amount,
+      },
+    );
 
-    if (paymentError) {
-      if (paymentError.code === "23505") {
-        // unique_violation — already processed, return success
-        console.log("Webhook: duplicate reference, skipping:", reference);
-        return new Response(
-          JSON.stringify({ success: true, skipped: true }),
-          {
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          },
-        );
-      }
-      console.error("Webhook: payment insert error", paymentError);
+    if (rpcError) {
+      console.error("record_job_payment failed:", rpcError);
       return new Response(
         JSON.stringify({ error: "Payment recording failed" }),
         {
@@ -123,20 +113,16 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Only update job balance if payment insert succeeded
-    // Cap at total_amount to prevent over-credit
-    const newAmountPaid = Math.min(
-      Number(job.amount_paid) + amount,
-      Number(job.total_amount),
-    );
-
-    const { error: updateError } = await supabase
-      .from("jobs")
-      .update({ amount_paid: newAmountPaid })
-      .eq("id", jobId);
-
-    if (updateError) {
-      console.error("Webhook: job update error", updateError);
+    if (result?.recorded === false) {
+      // Duplicate webhook for an already-processed reference — safe no-op.
+      console.log("Webhook: reference already processed, skipping:", reference);
+      return new Response(
+        JSON.stringify({ success: true, skipped: true }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     return new Response(

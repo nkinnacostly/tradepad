@@ -13,14 +13,7 @@ const EXPECTED_PRICES = {
   annual: 12000,
 } as const;
 
-const PERIOD_DAYS = {
-  monthly: 30,
-  annual: 365,
-} as const;
-
 type BillingCycle = keyof typeof EXPECTED_PRICES;
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 // Helper so every acknowledgement uses the identical 200 shape Flutterwave
 // (via the getpaidly.co router) expects, preventing retries.
@@ -146,72 +139,45 @@ Deno.serve(async (req: Request) => {
       return ack({ received: true });
     }
 
-    // Step 6 — Compute the new expiry with stacking.
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("subscription_status, subscription_expires_at")
-      .eq("id", ownerId)
-      .single();
+    // Step 6 — Ledger insert, stacking expiry, and the Pro grant happen
+    // atomically in Postgres. The RPC trusts that we already verified the
+    // payment above, and handles idempotency on the unique reference.
+    const { data: result, error } = await supabase.rpc(
+      "process_subscription_payment",
+      {
+        p_owner_id: ownerId,
+        p_reference: txRef,
+        p_amount: paidAmount,
+        p_cycle: cycle,
+      },
+    );
 
-    const now = new Date();
-    const currentExpiry = profile?.subscription_expires_at
-      ? new Date(profile.subscription_expires_at)
-      : null;
-
-    const hasActiveFuture =
-      profile?.subscription_status === "active" &&
-      currentExpiry !== null &&
-      currentExpiry.getTime() > now.getTime();
-
-    // Early renewals keep their remaining days — the new period stacks on top.
-    const base = hasActiveFuture ? (currentExpiry as Date) : now;
-    const newExpiry = new Date(base.getTime() + PERIOD_DAYS[cycle] * DAY_MS);
-
-    // Step 7 — Write the ledger row. The unique reference is the second line
-    // of idempotency defense (Postgres unique violation = already processed).
-    const { error: insertError } = await supabase
-      .from("subscription_payments")
-      .insert({
-        owner_id: ownerId,
-        reference: txRef,
-        amount: paidAmount,
-        billing_cycle: cycle,
-        period_start: base.toISOString(),
-        period_end: newExpiry.toISOString(),
-        status: "success",
-      });
-
-    if (insertError) {
-      if (insertError.code === "23505") {
-        console.log(
-          "subscription-webhook: duplicate reference, skipping:",
-          txRef,
-        );
-        return ack({ success: true, already_processed: true });
-      }
-      console.error("subscription-webhook: ledger insert error", insertError);
+    if (error) {
+      console.error(
+        "subscription-webhook: process_subscription_payment error",
+        error,
+      );
       return ack({ received: true });
     }
 
-    // Step 8 — Grant Pro.
-    const { error: updateError } = await supabase
-      .from("profiles")
-      .update({
-        subscription_tier: "pro",
-        subscription_status: "active",
-        subscription_expires_at: newExpiry.toISOString(),
-        billing_cycle: cycle,
-      })
-      .eq("id", ownerId);
-
-    if (updateError) {
-      console.error("subscription-webhook: profile update error", updateError);
+    if (result?.granted) {
+      console.log("subscription-webhook: Pro granted", {
+        txRef,
+        ownerId,
+        expires_at: result.expires_at,
+      });
+    } else {
+      console.log(
+        "subscription-webhook: already processed (idempotent no-op)",
+        { txRef, ownerId },
+      );
     }
 
     return ack({
       success: true,
       owner_id: ownerId,
-      subscription_expires_at: newExpiry.toISOString(),
+      granted: result?.granted ?? false,
+      subscription_expires_at: result?.expires_at ?? null,
     });
   } catch (error) {
     // Always acknowledge so Flutterwave/the router does not retry a request

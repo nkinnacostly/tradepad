@@ -43,3 +43,10 @@ yarn-error.*
 
 # audit report
 docs/AUDIT_REPORT.md
+
+CLAUDE.md
+AGENTS.md
+
+.cursor/
+.claude/
+.openvisio/

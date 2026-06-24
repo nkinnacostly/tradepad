@@ -79,32 +79,15 @@ Deno.serve(async (req: Request) => {
 
     const amount = Number(flwData.data.amount);
     const reference = flwData.data.tx_ref;
+    // The job the verified transaction was actually for (falls back to the
+    // request body for older links without meta.job_id).
+    const jobId = flwData.data.meta?.job_id ?? job_id;
 
-    const { data: existingPayment } = await supabase
-      .from("payments")
-      .select("id")
-      .eq("reference", reference)
-      .maybeSingle();
-
-    if (existingPayment) {
-      return new Response(
-        JSON.stringify({
-          success: true,
-          paid: true,
-          already_recorded: true,
-          message: "Payment already recorded",
-        }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
-    }
-
+    // Confirm the job exists and belongs to the caller (ownership + 404).
     const { data: job, error: jobError } = await supabase
       .from("jobs")
-      .select("id, amount_paid, owner_id")
-      .eq("id", job_id)
+      .select("id, owner_id")
+      .eq("id", jobId)
       .eq("owner_id", user.id)
       .single();
 
@@ -118,20 +101,46 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    await supabase.from("payments").insert({
-      job_id,
-      owner_id: job.owner_id,
-      amount,
-      payment_method: "online",
-      reference,
-      notes: "Paid via Flutterwave payment link",
-    });
+    // Record the payment and update the job balance atomically. The RPC locks
+    // the job row, inserts the payment (idempotent on the unique reference),
+    // and applies the capped amount_paid update in a single transaction.
+    const { data: result, error: rpcError } = await supabase.rpc(
+      "record_job_payment",
+      {
+        p_job_id: job.id,
+        p_owner_id: job.owner_id,
+        p_reference: reference,
+        p_amount: amount,
+      },
+    );
 
-    const newAmountPaid = Number(job.amount_paid) + amount;
-    await supabase
-      .from("jobs")
-      .update({ amount_paid: newAmountPaid })
-      .eq("id", job_id);
+    if (rpcError) {
+      console.error("record_job_payment failed:", rpcError);
+      return new Response(
+        JSON.stringify({ error: "Could not record payment" }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    if (result?.recorded === false) {
+      // Already recorded (duplicate, or the webhook beat us) — safe no-op.
+      console.log("verify-payment: reference already recorded:", reference);
+      return new Response(
+        JSON.stringify({
+          success: true,
+          paid: true,
+          already_recorded: true,
+          message: "Payment already recorded",
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
 
     return new Response(
       JSON.stringify({

@@ -13,14 +13,7 @@ const EXPECTED_PRICES = {
   annual: 12000,
 } as const;
 
-const PERIOD_DAYS = {
-  monthly: 30,
-  annual: 365,
-} as const;
-
 type BillingCycle = keyof typeof EXPECTED_PRICES;
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 const json = (body: Record<string, unknown>, status: number): Response =>
   new Response(JSON.stringify(body), {
@@ -154,87 +147,51 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // 7. Stacking expiry — early renewals keep their remaining days.
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("subscription_status, subscription_expires_at")
-      .eq("id", user.id)
-      .single();
+    // 7. Ledger insert, stacking expiry, and the Pro grant happen atomically
+    // in Postgres. The RPC trusts that we already verified the payment above,
+    // and handles idempotency on the unique reference.
+    const { data: result, error } = await supabase.rpc(
+      "process_subscription_payment",
+      {
+        p_owner_id: user.id,
+        p_reference: tx_ref,
+        p_amount: paidAmount,
+        p_cycle: cycle,
+      },
+    );
 
-    const now = new Date();
-    const currentExpiry = profile?.subscription_expires_at
-      ? new Date(profile.subscription_expires_at)
-      : null;
-
-    const hasActiveFuture =
-      profile?.subscription_status === "active" &&
-      currentExpiry !== null &&
-      currentExpiry.getTime() > now.getTime();
-
-    const base = hasActiveFuture ? (currentExpiry as Date) : now;
-    const newExpiry = new Date(base.getTime() + PERIOD_DAYS[cycle] * DAY_MS);
-
-    // 8. Write the ledger row. The unique reference is the second line of
-    // idempotency defense (Postgres unique violation = already processed).
-    const { error: insertError } = await supabase
-      .from("subscription_payments")
-      .insert({
-        owner_id: user.id,
-        reference: tx_ref,
-        amount: paidAmount,
-        billing_cycle: cycle,
-        period_start: base.toISOString(),
-        period_end: newExpiry.toISOString(),
-        status: "success",
-      });
-
-    if (insertError) {
-      if (insertError.code === "23505") {
-        // Already processed (e.g. the webhook beat us to it). Report the
-        // current expiry so the app reflects the active subscription.
-        const { data: current } = await supabase
-          .from("profiles")
-          .select("subscription_expires_at")
-          .eq("id", user.id)
-          .single();
-
-        return json(
-          {
-            success: true,
-            is_pro: true,
-            already_processed: true,
-            expires_at: current?.subscription_expires_at ?? null,
-          },
-          200,
-        );
-      }
-      console.error("verify-subscription: ledger insert error", insertError);
+    if (error) {
+      console.error(
+        "verify-subscription: process_subscription_payment error",
+        error,
+      );
       return json(
         { success: false, is_pro: false, error: "Could not record payment" },
         500,
       );
     }
 
-    // 9. Grant Pro
-    const { error: updateError } = await supabase
-      .from("profiles")
-      .update({
-        subscription_tier: "pro",
-        subscription_status: "active",
-        subscription_expires_at: newExpiry.toISOString(),
-        billing_cycle: cycle,
-      })
-      .eq("id", user.id);
-
-    if (updateError) {
-      console.error("verify-subscription: profile update error", updateError);
+    if (result?.granted) {
+      console.log("verify-subscription: Pro granted", {
+        tx_ref,
+        ownerId: user.id,
+        expires_at: result.expires_at,
+      });
+    } else {
+      console.log("verify-subscription: already processed (idempotent no-op)", {
+        tx_ref,
+        ownerId: user.id,
+      });
     }
 
+    // granted: true => newly activated; false => already processed. Either way
+    // the user is Pro, so report is_pro: true with the current expiry.
     return json(
       {
         success: true,
         is_pro: true,
-        expires_at: newExpiry.toISOString(),
+        already_processed: result?.granted === false,
+        expires_at: result?.expires_at ?? null,
       },
       200,
     );
