@@ -44,9 +44,13 @@ yarn-error.*
 # audit report
 docs/AUDIT_REPORT.md
 
+# context files
 CLAUDE.md
 AGENTS.md
 
+# cursor files
 .cursor/
+# claude files
 .claude/
+# openvision files
 .openvisio/
