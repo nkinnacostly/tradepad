@@ -47,7 +47,6 @@ const schema = z.object({
     .string()
     .min(10, "Enter a valid account number")
     .max(10, "Account number must be 10 digits"),
-  business_mobile: z.string().min(10, "Enter a valid phone number"),
 });
 
 type BankAccountFormData = z.infer<typeof schema>;
@@ -105,7 +104,6 @@ const BankAccountSetupForm = ({
       bank_name: "",
       bank_code: "",
       bank_account_number: "",
-      business_mobile: "",
     },
   });
 
@@ -192,12 +190,17 @@ const BankAccountSetupForm = ({
     setSubmitError(null);
     setSuccessMessage(null);
 
+    if (!resolvedAccountName) {
+      setSubmitError("Verify your account before connecting.");
+      return;
+    }
+
     try {
       await setupBankAccount({
         bank_account_number: data.bank_account_number,
         bank_name: data.bank_name,
         bank_code: data.bank_code,
-        business_mobile: data.business_mobile,
+        bank_account_name: resolvedAccountName,
       });
       setSuccessMessage("Bank account connected successfully.");
       await onConnected();
@@ -221,10 +224,11 @@ const BankAccountSetupForm = ({
           size={32}
           style={styles.introIcon}
         />
-        <Text style={styles.introTitle}>Secure Payments</Text>
+        <Text style={styles.introTitle}>Get Paid Instantly</Text>
         <Text style={styles.introBody}>
-          Your clients pay directly into your bank account. Tradepad takes 1.5%
-          per transaction.
+          Your bank details are added to every invoice so clients transfer
+          straight to you. The money never passes through Tradepad — you get it
+          instantly, with nothing deducted.
         </Text>
       </View>
 
@@ -266,22 +270,6 @@ const BankAccountSetupForm = ({
             keyboardType="number-pad"
             label="Account Number"
             maxLength={10}
-            value={value}
-            onBlur={onBlur}
-            onChangeText={onChange}
-          />
-        )}
-      />
-
-      <Controller
-        control={control}
-        name="business_mobile"
-        render={({ field: { onChange, onBlur, value } }) => (
-          <Input
-            error={errors.business_mobile?.message}
-            keyboardType="phone-pad"
-            label="Phone Number (linked to bank)"
-            placeholder="08012345678"
             value={value}
             onBlur={onBlur}
             onChangeText={onChange}
@@ -442,16 +430,16 @@ const ConnectedBankAccount = ({
   const accountNumber = details.bank_account_number ?? "";
   const maskedAccount = maskAccountNumber(accountNumber);
   const bankName = details.bank_name ?? "Bank";
-  const subaccountId = details.flutterwave_subaccount_id ?? "";
+  const accountName = details.bank_account_name ?? "";
 
   const handleRemovePress = (): void => {
-    if (!subaccountId) {
+    if (!accountNumber) {
       return;
     }
 
     Alert.alert(
       "Remove Bank Account",
-      "This will disconnect your bank account. You won't be able to generate payment links until you reconnect.",
+      "This will remove your bank details from new invoices. Clients won't see where to pay until you reconnect an account.",
       [
         { style: "cancel", text: "Cancel" },
         {
@@ -463,7 +451,7 @@ const ConnectedBankAccount = ({
               setRemoveError(null);
 
               try {
-                await removeBankAccount(subaccountId);
+                await removeBankAccount();
                 await onRemoved();
               } catch (err) {
                 const message =
@@ -498,6 +486,9 @@ const ConnectedBankAccount = ({
             <Text style={styles.connectedBadgeText}>Connected ✓</Text>
           </View>
         </View>
+        {accountName ? (
+          <Text style={styles.connectedAccountName}>{accountName}</Text>
+        ) : null}
         <Text style={styles.connectedBankName}>{bankName}</Text>
         <Text style={styles.connectedAccountNumber}>{maskedAccount}</Text>
       </View>
@@ -533,7 +524,7 @@ const ConnectedBankAccount = ({
 export default function BankAccountScreen(): React.JSX.Element {
   const { details, isLoading, error, refetch } = useBankAccountDetails();
 
-  const isConnected = Boolean(details?.flutterwave_subaccount_id);
+  const isConnected = Boolean(details?.bank_account_number);
 
   if (isLoading) {
     return (
@@ -648,10 +639,16 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.semibold,
     fontSize: FONT_SIZE.sm,
   },
-  connectedBankName: {
+  connectedAccountName: {
     color: COLORS.textPrimary,
-    fontFamily: FONTS.semibold,
+    fontFamily: FONTS.extrabold,
     fontSize: FONT_SIZE.lg,
+    marginBottom: SPACING.xs,
+  },
+  connectedBankName: {
+    color: COLORS.textSecondary,
+    fontFamily: FONTS.semibold,
+    fontSize: FONT_SIZE.md,
     marginBottom: SPACING.xs,
   },
   connectedAccountNumber: {

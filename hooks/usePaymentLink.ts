@@ -11,7 +11,7 @@ export interface SetupBankAccountParams {
   bank_account_number: string;
   bank_name: string;
   bank_code: string;
-  business_mobile: string;
+  bank_account_name: string;
 }
 
 export interface GeneratePaymentLinkParams {
@@ -133,25 +133,20 @@ export const setupBankAccount = async (
       throw new Error("Not authenticated");
     }
 
-    const { data: profile, error: profileError } = await supabase
+    // Direct-transfer model: clients pay the owner's bank account straight from
+    // the invoice, so we only persist the verified account details — no
+    // Flutterwave subaccount is created.
+    const { error: updateError } = await supabase
       .from("profiles")
-      .select("business_name")
-      .eq("id", user.id)
-      .single();
+      .update({
+        bank_account_number: params.bank_account_number,
+        bank_name: params.bank_name,
+        bank_code: params.bank_code,
+        bank_account_name: params.bank_account_name,
+      })
+      .eq("id", user.id);
 
-    if (profileError) throw profileError;
-    if (!profile?.business_name) {
-      throw new Error("Business profile not found");
-    }
-
-    await invokeEdgeFunction("create-subaccount", {
-      bank_account_number: params.bank_account_number,
-      bank_name: params.bank_name,
-      bank_code: params.bank_code,
-      business_mobile: params.business_mobile,
-      business_name: profile.business_name,
-      business_email: user.email ?? `${user.id}@tradepad.app`,
-    });
+    if (updateError) throw updateError;
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Could not set up bank account";
@@ -297,11 +292,26 @@ export const verifyPayment = async (params: {
   }
 };
 
-export const removeBankAccount = async (subaccountId: string): Promise<void> => {
+export const removeBankAccount = async (): Promise<void> => {
   try {
-    await invokeEdgeFunction("delete-subaccount", {
-      subaccount_id: subaccountId,
-    });
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    if (authError) throw authError;
+    const user = authData.user;
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({
+        bank_account_number: null,
+        bank_name: null,
+        bank_code: null,
+        bank_account_name: null,
+      })
+      .eq("id", user.id);
+
+    if (updateError) throw updateError;
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Could not remove bank account";
@@ -314,7 +324,7 @@ export interface BankAccountDetails {
   bank_account_number: string | null;
   bank_name: string | null;
   bank_code: string | null;
-  flutterwave_subaccount_id: string | null;
+  bank_account_name: string | null;
 }
 
 export interface UseBankAccountDetailsResult {
@@ -346,7 +356,7 @@ export const useBankAccountDetails = (): UseBankAccountDetailsResult => {
       const { data, error: queryError } = await supabase
         .from("profiles")
         .select(
-          "bank_account_number, bank_name, bank_code, flutterwave_subaccount_id",
+          "bank_account_number, bank_name, bank_code, bank_account_name",
         )
         .eq("id", userId)
         .single();
@@ -357,7 +367,7 @@ export const useBankAccountDetails = (): UseBankAccountDetailsResult => {
         bank_account_number: data.bank_account_number,
         bank_name: data.bank_name,
         bank_code: data.bank_code,
-        flutterwave_subaccount_id: data.flutterwave_subaccount_id,
+        bank_account_name: data.bank_account_name,
       });
     } catch (err) {
       console.error("useBankAccountDetails fetch error:", err);
@@ -400,13 +410,13 @@ export const useProfileBankStatus = (): UseProfileBankStatusResult => {
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("flutterwave_subaccount_id, bank_account_number, bank_name")
+        .select("bank_account_number, bank_name, bank_account_name")
         .eq("id", userId)
         .single();
 
       if (error) throw error;
 
-      setHasBankAccount(data?.flutterwave_subaccount_id != null);
+      setHasBankAccount(data?.bank_account_number != null);
     } catch (err) {
       console.error("useProfileBankStatus fetch error:", err);
       setHasBankAccount(false);

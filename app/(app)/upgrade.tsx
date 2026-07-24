@@ -48,7 +48,7 @@ const PLANS: Plan[] = [
 const FEATURES: string[] = [
   "Unlimited clients",
   "Unlimited jobs",
-  "Payment links",
+  "Direct bank payments on invoices",
   "WhatsApp invoices",
   "Due-date reminders",
   "Business analytics",
@@ -235,8 +235,8 @@ export default function UpgradeScreen(): React.JSX.Element {
         </View>
       ) : (
         <Text style={styles.valueLine}>
-          Unlock unlimited clients and jobs, payment links, WhatsApp invoices,
-          reminders, and analytics.
+          Unlock unlimited clients and jobs, WhatsApp invoices with your bank
+          details for instant direct payments, reminders, and analytics.
         </Text>
       )}
 

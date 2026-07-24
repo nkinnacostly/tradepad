@@ -31,7 +31,7 @@ const formatPhoneForWhatsApp = (phone: string): string => {
 };
 
 const buildInvoiceMessage = (params: WhatsAppInvoiceParams): string => {
-  const { job, jobItems, businessName } = params;
+  const { job, jobItems, businessName, bankDetails } = params;
   const clientName = job.clients?.full_name ?? "Client";
   const outstanding = job.total_amount - job.amount_paid;
   const lines: string[] = [];
@@ -68,6 +68,16 @@ const buildInvoiceMessage = (params: WhatsAppInvoiceParams): string => {
     lines.push(`Details: ${job.description.trim()}`);
   }
 
+  if (outstanding > 0 && bankDetails) {
+    lines.push("");
+    lines.push("─────────────────");
+    lines.push("💳 *Pay directly to:*");
+    if (bankDetails.accountName.trim()) {
+      lines.push(bankDetails.accountName.trim());
+    }
+    lines.push(`${bankDetails.bankName} — ${bankDetails.accountNumber}`);
+  }
+
   lines.push("");
   lines.push("_Thank you for your business!_");
   lines.push("_Powered by Tradepad_");
@@ -75,11 +85,18 @@ const buildInvoiceMessage = (params: WhatsAppInvoiceParams): string => {
   return lines.join("\n");
 };
 
+export type InvoiceBankDetails = {
+  accountName: string;
+  bankName: string;
+  accountNumber: string;
+};
+
 export type WhatsAppInvoiceParams = {
   job: JobWithClient;
   jobItems: JobItem[];
   businessName: string;
   phone: string;
+  bankDetails?: InvoiceBankDetails;
 };
 
 export const sendWhatsAppInvoice = async (

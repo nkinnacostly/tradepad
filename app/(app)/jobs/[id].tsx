@@ -6,7 +6,6 @@ import {
   Alert,
   Pressable,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -26,11 +25,7 @@ import {
   SPACING,
 } from "../../../constants";
 import { useClient } from "../../../hooks/useClients";
-import {
-  generatePaymentLink,
-  useProfileBankStatus,
-  verifyPayment,
-} from "../../../hooks/usePaymentLink";
+import { useBankAccountDetails } from "../../../hooks/usePaymentLink";
 import { recordPayment, updateJobStatus, useJob } from "../../../hooks/useJobs";
 import { supabase } from "../../../lib/supabase";
 import type { JobStatus, PaymentMethod } from "../../../types";
@@ -74,17 +69,12 @@ export default function JobDetailScreen(): React.JSX.Element {
     id ?? "",
   );
   const { client } = useClient(job?.client_id ?? "");
-  const { hasBankAccount, isLoading: bankStatusLoading } =
-    useProfileBankStatus();
+  const { details: bankDetails, isLoading: bankStatusLoading } =
+    useBankAccountDetails();
+  const hasBankAccount = Boolean(bankDetails?.bank_account_number);
 
   const [businessName, setBusinessName] = useState<string>("");
   const [isSendingInvoice, setIsSendingInvoice] = useState<boolean>(false);
-  const [isGeneratingLink, setIsGeneratingLink] = useState<boolean>(false);
-  const [paymentLink, setPaymentLink] = useState<string | null>(null);
-  const [paymentTxRef, setPaymentTxRef] = useState<string | null>(null);
-  const [isVerifyingPayment, setIsVerifyingPayment] = useState<boolean>(false);
-  const [verifyMessage, setVerifyMessage] = useState<string | null>(null);
-  const [verifySuccess, setVerifySuccess] = useState<boolean>(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(
@@ -132,82 +122,6 @@ export default function JobDetailScreen(): React.JSX.Element {
     void fetchBusinessName();
   }, []);
 
-  const sharePaymentLink = async (
-    link: string,
-    jobTitle: string,
-  ): Promise<void> => {
-    await Share.share({
-      message: `Pay for ${jobTitle} here: ${link}`,
-      url: link,
-    });
-  };
-
-  const handleGeneratePaymentLink = async (): Promise<void> => {
-    if (!job || !client) {
-      return;
-    }
-
-    setIsGeneratingLink(true);
-
-    try {
-      const result = await generatePaymentLink({
-        job_id: job.id,
-        amount: job.total_amount - job.amount_paid,
-        customer_name: client.full_name,
-        customer_phone: client.phone ?? "",
-      });
-      setPaymentLink(result.payment_link);
-      setPaymentTxRef(result.tx_ref);
-      setVerifyMessage(null);
-      setVerifySuccess(false);
-      await sharePaymentLink(result.payment_link, job.title);
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Could not generate payment link";
-      Alert.alert("Error", message);
-    } finally {
-      setIsGeneratingLink(false);
-    }
-  };
-
-  const handleVerifyPayment = async (): Promise<void> => {
-    if (!job || !paymentLink || !paymentTxRef) {
-      return;
-    }
-
-    setIsVerifyingPayment(true);
-    setVerifyMessage(null);
-    setVerifySuccess(false);
-
-    try {
-      const result = await verifyPayment({
-        tx_ref: paymentTxRef,
-        job_id: job.id,
-      });
-
-      if (result.paid) {
-        setVerifySuccess(true);
-        setVerifyMessage(
-          result.alreadyRecorded
-            ? "Payment was already recorded"
-            : `Payment of ₦${result.amount.toLocaleString("en-NG")} verified and recorded!`,
-        );
-        await refetch();
-      } else {
-        setVerifyMessage(
-          "Payment not completed yet. Ask your client to complete the payment.",
-        );
-      }
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Could not verify payment";
-      setVerifyMessage(message);
-      setVerifySuccess(false);
-    } finally {
-      setIsVerifyingPayment(false);
-    }
-  };
-
   const handleSendInvoice = async (): Promise<void> => {
     if (!job || !client || !businessName.trim()) {
       return;
@@ -221,6 +135,14 @@ export default function JobDetailScreen(): React.JSX.Element {
         jobItems,
         businessName: businessName.trim(),
         phone: client.phone,
+        bankDetails:
+          bankDetails?.bank_account_number && bankDetails.bank_name
+            ? {
+                accountName: bankDetails.bank_account_name ?? "",
+                bankName: bankDetails.bank_name,
+                accountNumber: bankDetails.bank_account_number,
+              }
+            : undefined,
       });
     } catch (err) {
       const message =
@@ -323,11 +245,7 @@ export default function JobDetailScreen(): React.JSX.Element {
   const nextLabel = nextStatusLabel(job.status);
   const statusBorderColor =
     next != null ? JOB_STATUS_COLORS[next] : COLORS.primary;
-  const showPaymentLinkChip = outstanding > 0 && hasBankAccount;
-  const showVerifyChip =
-    Boolean(paymentLink) && Boolean(paymentTxRef) && outstanding > 0;
-  const showChipRow =
-    showInvoiceButton || showPaymentLinkChip || showVerifyChip;
+  const showChipRow = showInvoiceButton;
   const showBankSetupHint =
     outstanding > 0 && !bankStatusLoading && !hasBankAccount;
 
@@ -399,50 +317,6 @@ export default function JobDetailScreen(): React.JSX.Element {
               )}
             </Pressable>
           ) : null}
-
-          {showPaymentLinkChip ? (
-            <Pressable
-              accessibilityRole="button"
-              disabled={isGeneratingLink}
-              onPress={() => {
-                void handleGeneratePaymentLink();
-              }}
-              style={({ pressed }) => [
-                styles.actionChip,
-                styles.actionChipPrimary,
-                isGeneratingLink && styles.actionChipDisabled,
-                pressed && !isGeneratingLink && styles.actionChipPressed,
-              ]}
-            >
-              {isGeneratingLink ? (
-                <ActivityIndicator color={COLORS.textMuted} size="small" />
-              ) : (
-                <Text style={styles.actionChipText}>🔗 Payment Link</Text>
-              )}
-            </Pressable>
-          ) : null}
-
-          {showVerifyChip ? (
-            <Pressable
-              accessibilityRole="button"
-              disabled={isVerifyingPayment}
-              onPress={() => {
-                void handleVerifyPayment();
-              }}
-              style={({ pressed }) => [
-                styles.actionChip,
-                styles.actionChipSuccess,
-                isVerifyingPayment && styles.actionChipDisabled,
-                pressed && !isVerifyingPayment && styles.actionChipPressed,
-              ]}
-            >
-              {isVerifyingPayment ? (
-                <ActivityIndicator color={COLORS.textMuted} size="small" />
-              ) : (
-                <Text style={styles.actionChipText}>✓ Check Payment</Text>
-              )}
-            </Pressable>
-          ) : null}
         </ScrollView>
       ) : null}
 
@@ -501,41 +375,10 @@ export default function JobDetailScreen(): React.JSX.Element {
         ) : null}
       </View>
 
-      {paymentLink ? (
-        <View style={styles.paymentLinkCard}>
-          <Text style={styles.paymentLinkSuccess}>Payment link generated</Text>
-          <Text numberOfLines={1} style={styles.paymentLinkUrl}>
-            {paymentLink}
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            hitSlop={8}
-            style={styles.shareAgainButton}
-            onPress={() => {
-              void sharePaymentLink(paymentLink, job.title);
-            }}
-          >
-            <Text style={styles.shareAgainText}>Share again</Text>
-          </Pressable>
-        </View>
-      ) : null}
-
-      {verifyMessage ? (
-        <Text
-          style={[
-            styles.verifyMessage,
-            verifySuccess
-              ? styles.verifyMessageSuccess
-              : styles.verifyMessageWarning,
-          ]}
-        >
-          {verifyMessage}
-        </Text>
-      ) : null}
-
       {showBankSetupHint ? (
         <Text style={styles.bankSetupHint}>
-          Set up your bank account in Settings to generate payment links
+          Connect your bank account in Settings so it appears on invoices and
+          clients can pay you directly.
         </Text>
       ) : null}
 
@@ -743,12 +586,6 @@ const styles = StyleSheet.create({
     marginRight: SPACING.sm,
     paddingHorizontal: SPACING.md,
   },
-  actionChipPrimary: {
-    borderColor: COLORS.primary,
-  },
-  actionChipSuccess: {
-    borderColor: COLORS.success,
-  },
   actionChipDisabled: {
     opacity: 0.5,
   },
@@ -759,47 +596,6 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontFamily: FONTS.medium,
     fontSize: FONT_SIZE.sm,
-  },
-  paymentLinkCard: {
-    backgroundColor: COLORS.surface,
-    borderColor: COLORS.border,
-    borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    marginBottom: SPACING.lg,
-    padding: SPACING.md,
-  },
-  paymentLinkSuccess: {
-    color: COLORS.success,
-    fontFamily: FONTS.medium,
-    fontSize: FONT_SIZE.sm,
-    marginBottom: SPACING.xs,
-  },
-  paymentLinkUrl: {
-    color: COLORS.textMuted,
-    fontFamily: FONTS.regular,
-    fontSize: FONT_SIZE.xs,
-    marginBottom: SPACING.sm,
-  },
-  shareAgainButton: {
-    alignSelf: "flex-start",
-    minHeight: 44,
-    justifyContent: "center",
-  },
-  shareAgainText: {
-    color: COLORS.primary,
-    fontFamily: FONTS.medium,
-    fontSize: FONT_SIZE.sm,
-  },
-  verifyMessage: {
-    fontFamily: FONTS.medium,
-    fontSize: FONT_SIZE.sm,
-    marginBottom: SPACING.md,
-  },
-  verifyMessageSuccess: {
-    color: COLORS.success,
-  },
-  verifyMessageWarning: {
-    color: COLORS.warning,
   },
   bankSetupHint: {
     color: COLORS.textMuted,
